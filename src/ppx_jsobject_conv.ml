@@ -98,7 +98,7 @@ module Jsobject_of_expander = struct
     let fps = List.map ~f:(fun tp -> jsobject_of_type tp) tps in
     let bindings, pvars, evars = Fun_or_match.map_tmp_vars ~loc fps in
     let in_expr = [%expr
-                      to_array
+                      to_js_array
                       [%e elist ~loc evars] ] in
     let expr = pexp_let ~loc Nonrecursive bindings in_expr in
     ppat_tuple ~loc pvars --> expr
@@ -107,12 +107,12 @@ module Jsobject_of_expander = struct
     let item = function
       | Rtag (cnstr, _, true, []) ->
          ppat_variant ~loc cnstr None -->
-           [%expr to_array [(jsobject_of_string [%e estring ~loc cnstr])]]
+           [%expr to_js_array [(jsobject_of_string [%e estring ~loc cnstr])]]
       | Rtag (cnstr, _, false, [tp]) ->
         let cnstr_expr = [%expr jsobject_of_string [%e estring ~loc cnstr] ] in
         let var, patt = evar ~loc "v0", pvar ~loc "v0" in
         let cnstr_arg = Fun_or_match.unroll ~loc var (jsobject_of_type tp) in
-        let expr = [%expr to_array [%e elist ~loc [cnstr_expr; cnstr_arg]]] in
+        let expr = [%expr to_js_array [%e elist ~loc [cnstr_expr; cnstr_arg]]] in
         ppat_variant ~loc cnstr (Some patt) --> expr
       | _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: unsupported jsobject_of_variant"
@@ -128,7 +128,7 @@ module Jsobject_of_expander = struct
       match cd.pcd_args with
       | [] ->
          ppat_construct ~loc lid None -->
-           [%expr to_array [jsobject_of_string [%e str]]]
+           [%expr to_js_array [jsobject_of_string [%e str]]]
       | args ->
          let jsobject_of_args = List.map ~f:jsobject_of_type args in
          let cnstr_expr = [%expr (jsobject_of_string [%e str])] in
@@ -142,7 +142,7 @@ module Jsobject_of_expander = struct
            pexp_let ~loc
                     Nonrecursive
                     bindings
-                    [%expr to_array
+                    [%expr to_js_array
                            [%e elist ~loc (cnstr_expr :: vars)]])
   let jsobject_of_sum tps cds = Fun_or_match.Match (branch_sum tps cds)
 
@@ -170,10 +170,10 @@ module Jsobject_of_expander = struct
     let patts, exprs =
       List.fold_left ~f:coll ~init:([], []) fields
     in
-    let expr = elist ~loc @@ List.rev exprs in
+    let expr = Ast_helper.Exp.array ~loc (List.rev exprs) in
     Fun_or_match.Match [
         ppat_record ~loc patts Closed -->
-          [%expr make_jsobject_from_list [%e expr]]
+          [%expr make_jsobject [%e expr]]
       ]
 
   let jsobject_of_td td =

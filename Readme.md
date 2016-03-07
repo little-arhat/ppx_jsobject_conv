@@ -1,9 +1,11 @@
 
-## ppx_jsobject_conv
+# ppx_jsobject_conv
 
-Ppx plugins for Typeconv to derive conversion from ocaml types to js objects to use with js_of_ocaml.
+*Work in progress!*
 
-# Example
+Ppx plugin for `Typeconv` to derive conversion from ocaml types to js objects to use with `js_of_ocaml`.
+
+## Example
 
 ```ocaml
 
@@ -18,3 +20,7 @@ type user = {
 } [@@deriving jsobject]
 
 ```
+
+## Build
+
+`make && ./main.native tests/test.ml`

@@ -33,17 +33,12 @@ let string_of_jsstring_res st =
   then Ok(Js.to_string (Js.Unsafe.coerce st))
   else Error("not a string")
 
-(* let new_array () = *)
-(*   let arrconst = Js.array_empty in *)
-(*   new%js arrconst *)
-
-(* let array_push el arr = *)
-(*   let _:int = arr##push el in *)
-(*   arr *)
-
-let to_array l =
+let new_array l =
   let arrconst_n = Js.array_length in
-  let arr = new%js arrconst_n (List.length l) in
+  Js.Unsafe.new_obj arrconst_n [| inject l |]
+
+let to_js_array l =
+  let arr = new_array @@ List.length l in
   let set = Js.array_set arr in
   let () = List.iteri set l in
   arr
@@ -57,11 +52,11 @@ let jsobject_of_option jsobject_of__a = function
   | None -> inject @@ Js.null
 
 let jsobject_of_list jsobject_of__a lst =
-  to_array @@ List.rev  @@ List.rev_map jsobject_of__a lst
+  to_js_array @@ List.rev  @@ List.rev_map jsobject_of__a lst
 let jsobject_of_array jsobject_of__a arr =
-  to_array @@ Array.to_list @@ Array.map jsobject_of__a arr
+  to_js_array @@ Array.to_list @@ Array.map jsobject_of__a arr
 
-let make_jsobject_from_list pairs =
-  inject @@ Js.Unsafe.obj @@ Array.of_list pairs
+let make_jsobject pairs =
+  inject @@ Js.Unsafe.obj @@ pairs
 
 module Js = Js

@@ -21,11 +21,7 @@ Library ppx_jsobject_conv_runtime
   Pack:         false
   Modules:      Ppx_jsobject_conv_runtime
   BuildDepends: result,
-                js_of_ocaml,
-                js_of_ocaml.ppx, deriving,
-                js_of_ocaml.deriving,
-                js_of_ocaml.deriving.ppx
-
+                js_of_ocaml
 
 Library ppx_jsobject_conv
   Path:         src
@@ -34,11 +30,9 @@ Library ppx_jsobject_conv
   BuildDepends: ppx_jsobject_conv_runtime,
                 ppx_core,
                 ppx_tools.metaquot,
-                ppx_type_conv,
-                result,
-                js_of_ocaml
+                ppx_type_conv
 
-Executable "ppx-jane"
+Executable "ppx-jsobject"
   Path:           bin
   MainIs:         main.ml
   CompiledObject: best

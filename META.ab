@@ -7,3 +7,14 @@ archive(ppx_driver, native        ) = "ppx_jsobject_conv.cmxa"
 archive(ppx_driver, native, plugin) = "ppx_jsobject_conv.cmxs"
 exists_if = "ppx_jsobject_conv.cma"
 ppxopt(-ppx_driver) = "ppx_deriving,./ppx_jsobject_conv.cma"
+
+package "runtime" (
+  version = "%{version}%"
+  description = "Runtime components of [@@deriving jsobject]"
+  requires = "js_of_ocaml, result"
+  archive(byte) = "ppx_jsobject_conv_runtime.cma"
+  archive(byte, plugin) = "ppx_jsobject_conv_runtime.cma"
+  archive(native) = "ppx_jsobject_conv_runtime.cmxa"
+  archive(native, plugin) = "ppx_jsobject_conv_runtime.cmxs"
+  exists_if = "ppx_jsobject_conv_runtime.cma"
+)

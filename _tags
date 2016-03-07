@@ -3,8 +3,13 @@
 # This prevents the implicit addition of -ppx options by ocamlfind
 <**/*.ml{,i}>: predicate(ppx_driver)
 <src/*>: linkall
+<**/*.ml{,i}>: warn(-40), no_alias_deps
+<**/*>: thread
+# This prevents the implicit addition of -ppx options by ocamlfind
+<**/*.ml{,i}>: predicate(ppx_driver)
+<src/*>: linkall
 # OASIS_START
-# DO NOT EDIT (digest: 7dee01675c4c62497799a220c6f3188f)
+# DO NOT EDIT (digest: 9b25aa6dd42fb670339fcb7f5d6eabc7)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -21,30 +26,18 @@ true: annot, bin_annot
 "_darcs": not_hygienic
 # Library ppx_jsobject_conv_runtime
 "runtime/ppx_jsobject_conv_runtime.cmxs": use_ppx_jsobject_conv_runtime
-<runtime/*.ml{,i,y}>: package(deriving)
 <runtime/*.ml{,i,y}>: package(js_of_ocaml)
-<runtime/*.ml{,i,y}>: package(js_of_ocaml.deriving)
-<runtime/*.ml{,i,y}>: package(js_of_ocaml.deriving.ppx)
-<runtime/*.ml{,i,y}>: package(js_of_ocaml.ppx)
 <runtime/*.ml{,i,y}>: package(result)
 # Library ppx_jsobject_conv
 "src/ppx_jsobject_conv.cmxs": use_ppx_jsobject_conv
-<src/*.ml{,i,y}>: package(deriving)
 <src/*.ml{,i,y}>: package(js_of_ocaml)
-<src/*.ml{,i,y}>: package(js_of_ocaml.deriving)
-<src/*.ml{,i,y}>: package(js_of_ocaml.deriving.ppx)
-<src/*.ml{,i,y}>: package(js_of_ocaml.ppx)
 <src/*.ml{,i,y}>: package(ppx_core)
 <src/*.ml{,i,y}>: package(ppx_tools.metaquot)
 <src/*.ml{,i,y}>: package(ppx_type_conv)
 <src/*.ml{,i,y}>: package(result)
 <src/*.ml{,i,y}>: use_ppx_jsobject_conv_runtime
-# Executable ppx-jane
-<bin/main.{native,byte}>: package(deriving)
+# Executable ppx-jsobject
 <bin/main.{native,byte}>: package(js_of_ocaml)
-<bin/main.{native,byte}>: package(js_of_ocaml.deriving)
-<bin/main.{native,byte}>: package(js_of_ocaml.deriving.ppx)
-<bin/main.{native,byte}>: package(js_of_ocaml.ppx)
 <bin/main.{native,byte}>: package(ppx_core)
 <bin/main.{native,byte}>: package(ppx_driver)
 <bin/main.{native,byte}>: package(ppx_tools.metaquot)
@@ -52,11 +45,7 @@ true: annot, bin_annot
 <bin/main.{native,byte}>: package(result)
 <bin/main.{native,byte}>: use_ppx_jsobject_conv
 <bin/main.{native,byte}>: use_ppx_jsobject_conv_runtime
-<bin/*.ml{,i,y}>: package(deriving)
 <bin/*.ml{,i,y}>: package(js_of_ocaml)
-<bin/*.ml{,i,y}>: package(js_of_ocaml.deriving)
-<bin/*.ml{,i,y}>: package(js_of_ocaml.deriving.ppx)
-<bin/*.ml{,i,y}>: package(js_of_ocaml.ppx)
 <bin/*.ml{,i,y}>: package(ppx_core)
 <bin/*.ml{,i,y}>: package(ppx_driver)
 <bin/*.ml{,i,y}>: package(ppx_tools.metaquot)
