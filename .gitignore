@@ -1,0 +1,15 @@
+_build
+.*.swp
+# Generated outputs
+*.native
+log
+.DS_Store
+setup.data
+setup.log
+/ppx_bin_prot
+/ppx_compare
+/ppx_sexp_conv
+/ppx_type_conv
+/ppx_variants_conv
+/test.ml
+/test.mli
