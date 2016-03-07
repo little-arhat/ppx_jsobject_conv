@@ -1,0 +1,46 @@
+OASISFormat:      0.4
+OCamlVersion:     >= 4.02.3
+FindlibVersion:   >= 1.3.2
+Name:             ppx_jsobject_conv
+Version:          0.1
+Synopsis:         Generate js_of_ocaml jsobject from type definition
+Authors:          Roma Sokolov
+Maintainers:      Roma Sokolov
+License:          MIT
+Homepage:         https://github.com/little-arhat/ppx_jsobject_conv
+Plugins:          StdFiles (0.3), DevFiles (0.3), META (0.3)
+XStdFilesAUTHORS: false
+XStdFilesREADME:  false
+BuildTools:       ocamlbuild
+FilesAB:          META.ab
+Description:
+  Useful
+
+Library ppx_jsobject_conv_runtime
+  Path:         runtime
+  Pack:         false
+  Modules:      Ppx_jsobject_conv_runtime
+  BuildDepends: result,
+                js_of_ocaml,
+                js_of_ocaml.ppx, deriving,
+                js_of_ocaml.deriving,
+                js_of_ocaml.deriving.ppx
+
+
+Library ppx_jsobject_conv
+  Path:         src
+  Pack:         false
+  Modules:      Ppx_jsobject_conv
+  BuildDepends: ppx_jsobject_conv_runtime,
+                ppx_core,
+                ppx_tools.metaquot,
+                ppx_type_conv,
+                result,
+                js_of_ocaml
+
+Executable "ppx-jane"
+  Path:           bin
+  MainIs:         main.ml
+  CompiledObject: best
+  BuildDepends:   ppx_driver,
+                  ppx_jsobject_conv
