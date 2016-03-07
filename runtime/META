@@ -1,0 +1,13 @@
+# OASIS_START
+# DO NOT EDIT (digest: 3dc93c3a32e1c6bf7f86e3d6ee97640d)
+version = "0.1"
+description = "Generate js_of_ocaml jsobject from type definition"
+requires =
+"result js_of_ocaml js_of_ocaml.ppx deriving js_of_ocaml.deriving js_of_ocaml.deriving.ppx"
+archive(byte) = "ppx_jsobject_conv_runtime.cma"
+archive(byte, plugin) = "ppx_jsobject_conv_runtime.cma"
+archive(native) = "ppx_jsobject_conv_runtime.cmxa"
+archive(native, plugin) = "ppx_jsobject_conv_runtime.cmxs"
+exists_if = "ppx_jsobject_conv_runtime.cma"
+# OASIS_STOP
+
