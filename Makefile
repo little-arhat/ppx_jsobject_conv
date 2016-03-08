@@ -5,12 +5,12 @@ build:
 	cp pkg/META.in pkg/META
 	ocaml pkg/build.ml native=true native-dynlink=true
 
-ppx-jsobject:
-	ocamlfind ocamlopt -predicates ppx_driver -o ppx-jsobject \
-		_build/src/$(NAME).cmxa -linkpkg -package ppx_type_conv \
-		-package ppx_driver ppx_driver_runner.cmxa
+# ppx-jsobject:
+# 	ocamlfind ocamlopt -predicates ppx_driver -o ppx-jsobject \
+# 		_build/src/$(NAME).cmxa -linkpkg -package ppx_type_conv \
+# 		-package ppx_driver ppx_driver_runner.cmxa
 
-driver: build ppx-jsobject
+# driver: build ppx-jsobject
 
 # test: build
 # 	rm -rf _build/src_test/
@@ -24,7 +24,6 @@ clean:
 	ocamlbuild -clean
 	rm -f $(NAME).install
 	rm -f pkg/META
-	rm -f ppx-jsobject
 
 install: $(NAME).install
 	opam-installer -i --prefix $(PREFIX) $(NAME).install

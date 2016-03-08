@@ -1,10 +1,16 @@
-# <**/*.ml{,i}>: warn(-40), no_alias_deps
+<**/*.ml{,i}>: warn(-40), no_alias_deps
 # This prevents the implicit addition of -ppx options by ocamlfind
-# <**/*.ml{,i}>: predicate(ppx_driver)
+<**/*.ml{,i}>: predicate(ppx_driver)
+<bin/*>: predicate(ppx_driver)
+<bin/*>: linkall
+<bin/*>: thread
 
-<src/*.ml{,i}>: bin_annot, debug
+
+<src/*.ml{,i}>: annot, bin_annot, debug
 <src/ppx_jsobject_conv.ml{,i}>: package(ppx_core), package(ppx_tools.metaquot), package(ppx_type_conv)
 <src/ppx_jsobject_conv_runtime.ml{,i}>: package(result), package(js_of_ocaml)
+
+<bin/*.{ml,byte}>: debug, package(ppx_type_conv), package(ppx_driver), package(ppx_jsobject_conv)
 
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
