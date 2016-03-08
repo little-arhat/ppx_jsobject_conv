@@ -16,7 +16,7 @@ let name_of_td td = match td.ptype_name.txt with
   | tn  -> "jsobject_of_" ^ tn
 
 let wrap_runtime decls =
-    [%expr let open! Ppx_deriving_jsobject_runtime in [%e decls]]
+    [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
 
 (* Courtesy of ppx_sexp_conv *)
 module Fun_or_match = struct
@@ -167,9 +167,7 @@ module Jsobject_of_expander = struct
           in
           patts, expr::exprs
     in
-    let patts, exprs =
-      List.fold_left ~f:coll ~init:([], []) fields
-    in
+    let patts, exprs = List.fold_left ~f:coll ~init:([], []) fields in
     let expr = Ast_helper.Exp.array ~loc (List.rev exprs) in
     Fun_or_match.Match [
         ppat_record ~loc patts Closed -->
