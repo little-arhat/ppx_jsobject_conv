@@ -11,6 +11,6 @@ setup.log
 /ppx_sexp_conv
 /ppx_type_conv
 /ppx_variants_conv
-META
+pkg/META
 ppx-jsobject
 ppx_jsobject_conv.install

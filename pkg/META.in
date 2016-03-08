@@ -1,28 +1,20 @@
 version = "${version}"
 description = "Generate jsobject to use with Js_of_ocaml from type definitions"
-requires(-ppx_driver) = "ppx_core.for_ppx_deriving ppx_type_conv.for_ppx_deriving"
-requires(ppx_driver) = "ppx_core ppx_type_conv"
-archive(ppx_driver, byte          ) = "ppx_jsobject_conv.cma"
-archive(ppx_driver, native        ) = "ppx_jsobject_conv.cmxa"
-archive(ppx_driver, native, plugin) = "ppx_jsobject_conv.cmxs"
+requires(-ppx_driver) = "ppx_deriving ppx_core.for_ppx_deriving ppx_type_conv.for_ppx_deriving ppx_jsobject_conv.runtime"
+requires(ppx_driverr) = "ppx_core ppx_type_conv"
 exists_if = "ppx_jsobject_conv.cma"
+archive(ppx_driver, byte) = "ppx_jsobject_conv.cma"
+archive(ppx_driver, native) = "ppx_jsobject_conv.cmxa"
+archive(ppx_driver, native, plugin) = "ppx_jsobject_conv.cmxs"
 ppxopt(-ppx_driver) = "ppx_deriving,./ppx_jsobject_conv.cma"
 
 package "runtime" (
   version = "%{version}%"
   description = "Runtime components of [@@deriving jsobject]"
-  requires = "js_of_ocaml, result"
+  requires = "js_of_ocaml result"
   archive(byte) = "ppx_jsobject_conv_runtime.cma"
   archive(byte, plugin) = "ppx_jsobject_conv_runtime.cma"
   archive(native) = "ppx_jsobject_conv_runtime.cmxa"
   archive(native, plugin) = "ppx_jsobject_conv_runtime.cmxs"
   exists_if = "ppx_jsobject_conv_runtime.cma"
-)
-
-package "for_ppx_deriving" (
-  description = "Don't use this directly"
-  error(ppx_driver) = "Cannot use ppx_jsobject_conv.for_ppx_deriving when ppx_driver is set"
-  requires = "ppx_core.for_ppx_deriving ppx_deriving"
-  exists_if = "ppx_jsobject_conv.cma"
-  ppxopt = "ppx_deriving,./ppx_jsobject_conv.cma"
 )

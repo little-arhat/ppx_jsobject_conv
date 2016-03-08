@@ -1,6 +1,4 @@
 
-module Js : (module type of Js)
-module Result : (module type of Result)
 
 (* error handling *)
 val (>|=) : ('a, 'b) Result.result -> ('a -> 'c) -> ('c, 'b) Result.result
@@ -20,3 +18,6 @@ val jsobject_of_float : float -> Js.Unsafe.any
 val jsobject_of_option : ('a -> Js.Unsafe.any) -> 'a option -> Js.Unsafe.any
 val jsobject_of_list: ('a -> Js.Unsafe.any) -> 'a list -> Js.Unsafe.any
 val jsobject_of_array: ('a -> Js.Unsafe.any) -> 'a array -> Js.Unsafe.any
+
+module Js : (module type of Js)
+module Result : (module type of Result)
