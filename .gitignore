@@ -12,3 +12,5 @@ setup.log
 /ppx_type_conv
 /ppx_variants_conv
 META
+ppx-jsobject
+ppx_jsobject_conv.install

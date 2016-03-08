@@ -43,9 +43,13 @@ let to_js_array l =
   let () = List.iteri set l in
   arr
 
-let jsobject_of_int = inject @@ number_of_int
-let jsobject_of_string = inject @@ Js.string
-let jsobject_of_float = inject @@ Js.number_of_float
+let make_jsobject pairs =
+  inject @@ Js.Unsafe.obj @@ pairs
+
+
+let jsobject_of_int v = inject @@ number_of_int v
+let jsobject_of_string v = inject @@ Js.string v
+let jsobject_of_float v = inject @@ Js.number_of_float v
 
 let jsobject_of_option jsobject_of__a = function
   | Some(x) -> jsobject_of__a x
@@ -56,7 +60,5 @@ let jsobject_of_list jsobject_of__a lst =
 let jsobject_of_array jsobject_of__a arr =
   to_js_array @@ Array.to_list @@ Array.map jsobject_of__a arr
 
-let make_jsobject pairs =
-  inject @@ Js.Unsafe.obj @@ pairs
-
 module Js = Js
+module Result = Result

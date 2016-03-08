@@ -8,12 +8,17 @@
 # This prevents the implicit addition of -ppx options by ocamlfind
 <**/*.ml{,i}>: predicate(ppx_driver)
 <src/*>: linkall
-# OASIS_START
-# DO NOT EDIT (digest: 9b25aa6dd42fb670339fcb7f5d6eabc7)
-# Ignore VCS directories, you can use the same kind of rule outside
-# OASIS_START/STOP if you want to exclude directories that contains
-# useless stuff for the build process
-true: annot, bin_annot
+
+
+# Library ppx_jsobject_conv
+# "src/ppx_jsobject_conv.cmxs": use_ppx_jsobject_conv
+<src/*.ml{,i,y}>: package(ppx_core)
+<src/*.ml{,i,y}>: package(ppx_tools.metaquot)
+<src/*.ml{,i,y}>: package(ppx_type_conv)
+<src/*.ml{,i,y}>: package(result)
+<src/*.ml{,i,y}>: package(js_of_ocaml)
+
+
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -24,36 +29,7 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
-# Library ppx_jsobject_conv_runtime
-"runtime/ppx_jsobject_conv_runtime.cmxs": use_ppx_jsobject_conv_runtime
-<runtime/*.ml{,i,y}>: package(js_of_ocaml)
-<runtime/*.ml{,i,y}>: package(result)
-# Library ppx_jsobject_conv
-"src/ppx_jsobject_conv.cmxs": use_ppx_jsobject_conv
-<src/*.ml{,i,y}>: package(js_of_ocaml)
-<src/*.ml{,i,y}>: package(ppx_core)
-<src/*.ml{,i,y}>: package(ppx_tools.metaquot)
-<src/*.ml{,i,y}>: package(ppx_type_conv)
-<src/*.ml{,i,y}>: package(result)
-<src/*.ml{,i,y}>: use_ppx_jsobject_conv_runtime
-# Executable ppx-jsobject
-<bin/main.{native,byte}>: package(js_of_ocaml)
-<bin/main.{native,byte}>: package(ppx_core)
-<bin/main.{native,byte}>: package(ppx_driver)
-<bin/main.{native,byte}>: package(ppx_tools.metaquot)
-<bin/main.{native,byte}>: package(ppx_type_conv)
-<bin/main.{native,byte}>: package(result)
-<bin/main.{native,byte}>: use_ppx_jsobject_conv
-<bin/main.{native,byte}>: use_ppx_jsobject_conv_runtime
-<bin/*.ml{,i,y}>: package(js_of_ocaml)
-<bin/*.ml{,i,y}>: package(ppx_core)
-<bin/*.ml{,i,y}>: package(ppx_driver)
-<bin/*.ml{,i,y}>: package(ppx_tools.metaquot)
-<bin/*.ml{,i,y}>: package(ppx_type_conv)
-<bin/*.ml{,i,y}>: package(result)
-<bin/*.ml{,i,y}>: use_ppx_jsobject_conv
-<bin/*.ml{,i,y}>: use_ppx_jsobject_conv_runtime
-# OASIS_STOP
+
 <ppx_bin_prot>: -traverse
 <ppx_compare>: -traverse
 <ppx_sexp_conv>: -traverse
