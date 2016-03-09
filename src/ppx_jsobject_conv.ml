@@ -11,10 +11,6 @@ module Type_conv = Ppx_type_conv.Std.Type_conv
 
 let ( --> ) lhs rhs = case ~guard:None ~lhs ~rhs
 
-let name_of_td td = match td.ptype_name.txt with
-  | "t" -> "jsobject_of"
-  | tn  -> "jsobject_of_" ^ tn
-
 let wrap_runtime decls =
     [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
 
@@ -34,6 +30,11 @@ module Fun_or_match = struct
     | Fun f       -> eapply ~loc f [e]
     | Match cases -> pexp_match ~loc e cases
 
+  (** For list of expressions returns triple (bindings, pvars, evars)
+      where bindings is list of `let v_i =`;
+            pvars is list of `v_i` for patterns, and
+            evars is list of expressions applied to corresponding temp var
+   *)
   let map_tmp_vars ~loc ts =
     let vars = List.mapi ts ~f:(fun i _ -> "v" ^ string_of_int i) in
     let bindings =
@@ -68,12 +69,16 @@ module Jsobject_of_expander = struct
       td ~f:(fun ~loc ty ->
         [%type: [%t ty] -> Js.Unsafe.any])
 
-  let jsobject_of_type_id (id : Longident.t Located.t) =
+  let name_of_td td = match td.ptype_name.txt with
+    | "t" -> "jsobject_of"
+    | tn  -> "jsobject_of_" ^ tn
+
+  let jsobject_of_std_type (id : Longident.t Located.t) =
     let txt : Longident.t =
       match id.txt with
       | Longident.Lident   s  -> Longident.Lident  ("jsobject_of_" ^ s)
       | Longident.Ldot (p, s) -> Longident.Ldot (p, "jsobject_of_" ^ s)
-      | Longident.Lapply _    -> failwith "sexp_of_type_id"
+      | Longident.Lapply _    -> failwith "ppx_jsobject_conv: jsobject_std_type"
     in
     pexp_ident ~loc:id.loc { id with txt }
 
@@ -81,18 +86,18 @@ module Jsobject_of_expander = struct
     let loc = typ.ptyp_loc in
     match typ with
     | { ptyp_desc = Ptyp_constr (cid, args); _ } ->
-       let init = jsobject_of_type_id cid in
+       let init = jsobject_of_std_type cid in
        Fun_or_match.Fun (List.fold_right
               args
               ~init
               ~f:(fun tp2 exp1  ->
                 let exp2 = Fun_or_match.expr ~loc (jsobject_of_type tp2) in
                 [%expr [%e exp1] [%e exp2]]))
-    | { ptyp_desc = Ptyp_tuple tp; _} ->
-       Fun_or_match.Match [jsobject_of_tuple (loc, tp)]
+    | { ptyp_desc = Ptyp_tuple tps; _} ->
+       Fun_or_match.Match [jsobject_of_tuple (loc, tps)]
     | { ptyp_desc = Ptyp_variant (row_fields, _, _); _ } ->
        jsobject_of_variant (loc, row_fields)
-    | _ -> Location.raise_errorf ~loc "Ttutututu"
+    | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- Unsupported type"
   (* Conversion of tuples *)
   and jsobject_of_tuple (loc, tps) =
     let fps = List.map ~f:(fun tp -> jsobject_of_type tp) tps in
@@ -177,7 +182,7 @@ module Jsobject_of_expander = struct
   let jsobject_of_td td =
     let tps = List.map td.ptype_params ~f:(fun tp -> (get_type_param_name tp).txt) in
     let {ptype_name = {txt = type_name; loc = _}; ptype_loc = loc; _} = td in
-    let body' =
+    let body =
       match td.ptype_kind with
       | Ptype_abstract -> begin
           match td.ptype_manifest with
@@ -188,17 +193,17 @@ module Jsobject_of_expander = struct
       | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
       | Ptype_record fields -> jsobject_of_record (loc, fields)
     in
-    let body = match body' with
-      | Fun_or_match.Fun fun_expr -> wrap_runtime [%expr fun v -> [%e fun_expr] v ]
-      | Fun_or_match.Match matchings -> wrap_runtime @@ pexp_function ~loc matchings
+    let body' = match body with
+    | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v ]
+    | Fun_or_match.Match matchings -> pexp_function ~loc matchings
     in
     let typ = mk_type td in
     let func_name = name_of_td td in
-    let body =
+    let body'' =
       let patts = List.map tps ~f:(fun id -> pvar ~loc ("_of_" ^ id)) in
-      eabstract ~loc patts body
+      eabstract ~loc patts @@ wrap_runtime body'
     in
-    [constrained_function_binding loc td typ ~tps ~func_name body]
+    [constrained_function_binding loc td typ ~tps ~func_name body'']
 
 
   let str_type_decl ~loc ~path:_ (rec_flag, tds) =
@@ -217,8 +222,7 @@ module Jsobject_of_expander = struct
                                   ~name:{ td.ptype_name with txt = name }
                                   ~type_:jsobject_of ~prim:[]))
   let core_type ty =
-    (* let loc = ty.ptyp_loc in *)
-    [%expr fun a b c -> 42]
+    jsobject_of_type ty |> Fun_or_match.expr ~loc:ty.ptyp_loc
 
 end
 
@@ -242,38 +246,139 @@ module Jsobject_of = struct
   ;;
 end
 
-(* module Of_jsobject_expander = struct *)
-(*   end *)
+module Of_jsobject_expander = struct
+  let mk_type td =
+    combinator_type_of_type_declaration
+      td ~f:(fun ~loc ty ->
+        [%type: Js.Unsafe.any -> ([%t ty], string) Result.t ])
 
-(* module Of_jsobject = struct *)
-(*   let str_type_decl = *)
-(*     Type_conv.Generator.make_noarg (Of_jsobject_expander.str_type_decl ~poly:true) *)
-(*       ~attributes:[ ] *)
-(*   ;; *)
+  let name_of_td td = match td.ptype_name.txt with
+    | "t" -> "of_jsobject"
+    | tn  -> tn ^ "_of_jsobject"
 
-(*   let sig_type_decl = *)
-(*     Type_conv.Generator.make_noarg (Of_jsobject_expander.sig_type_decl ~poly:true) *)
-(*   ;; *)
+  let std_type_of_jsobject_res (id : Longident.t Located.t) =
+    let txt : Longident.t =
+      match id.txt with
+      | Longident.Lident   s  -> Longident.Lident  (s ^ "_of_jsobject_res")
+      | Longident.Ldot (p, s) -> Longident.Ldot (p, s ^ "_of_jsobject_res")
+      | Longident.Lapply _    -> failwith "ppx_jsobject_conv: type_id_of_jsobject"
+    in
+    pexp_ident ~loc:id.loc { id with txt }
 
-(*   let extension ~loc:_ ~path:_ ctyp = Of_jsobject_expander.core_type ctyp *)
+  let rec type_of_jsobject (typ: core_type) : Fun_or_match.t =
+    let loc = typ.ptyp_loc in
+    match typ with
+    | { ptyp_desc = Ptyp_constr (id, args); _ } ->
+      let init = std_type_of_jsobject_res id in
+      let args = List.map args ~f:(fun arg ->
+                            Fun_or_match.expr ~loc (type_of_jsobject arg)) in
+      Fun_or_match.Fun (eapply ~loc init args)
+    | { ptyp_desc = Ptyp_tuple tps; _} -> tuple_of_jsobject (loc, tps)
+    | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: type_of_jsobject -- Unsupported type"
+  and tuple_of_jsobject (loc, tps) =
+    let fps = List.map ~f:(fun tp -> type_of_jsobject tp) tps in
+    let efps = List.map ~f:(Fun_or_match.expr ~loc) fps in
+    let _, pvars, evars = Fun_or_match.map_tmp_vars ~loc fps in
+    let iefps = List.mapi ~f:(fun i fp -> (i, fp)) efps in
+    let inner_expr = [%expr
+                         Ok([%e pexp_tuple ~loc evars])
+                     ] in
+    let num = List.length fps in
+    let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
+    let body = List.fold_right2
+                 ~f:(fun pvar (i, fp) acc ->
+                   let ei = eint ~loc i in
+                   [%expr
+                       array_get_or_error [%e earr] [%e ei]
+                       >>= [%e fp]
+                       >>= (fun [%p pvar ] ->
+                                [%e acc])
+                   ])
+                 ~init: inner_expr
+                 pvars iefps in
+    let outer_expr = [%expr
+                         is_array_of_size_n v [%e eint ~loc num]
+                         >>= (fun [%p parr] -> [%e body])
+                     ] in
+    (* let expr = pexp_let ~loc Nonrecursive bindings final_expr in *)
+    (* let b = eapply ~loc (evar ~loc ">>=") [evar ~loc "a"; evar ~loc "b"] in *)
+    Fun_or_match.Fun outer_expr
 
-(*   let deriver = *)
-(*     Type_conv.add "of_jsobject" *)
-(*       ~str_type_decl *)
-(*       ~sig_type_decl *)
-(*       ~extension *)
-(*   ;; *)
-(* end *)
+  let td_of_jsobject td =
+    let tps = List.map td.ptype_params ~f:(fun tp -> (get_type_param_name tp).txt) in
+    let {ptype_name = {txt = type_name; loc = _}; ptype_loc = loc; _} = td in
+    let is_private = (match td.ptype_private with Private -> true | Public -> false) in
+    if is_private
+    then Location.raise_errorf ~loc "of_sexp is not supported for private type";
+    let body =
+      match td.ptype_kind with
+      | Ptype_abstract -> begin
+          match td.ptype_manifest with
+          | Some ty -> type_of_jsobject ty
+          | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
+        end
+      | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: suka"
+    in
+    let body' = match body with
+    | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v]
+    | Fun_or_match.Match matchings -> pexp_function ~loc matchings
+    in
+    let typ = mk_type td in
+    let func_name = name_of_td td in
+    let body'' =
+      let patts = List.map tps ~f:(fun id -> pvar ~loc ("_of_" ^ id)) in
+      eabstract ~loc patts @@ wrap_runtime body'
+    in
+    [constrained_function_binding loc td typ ~tps ~func_name body'']
+
+
+  let str_type_decl ~loc ~path:_ (rec_flag, tds) =
+    let rec_flag = really_recursive rec_flag tds in
+    let bindings = List.map tds ~f:td_of_jsobject |> List.concat in
+    [pstr_value ~loc rec_flag bindings]
+
+
+  let sig_type_decl ~loc ~path:_ (_rf, tds) =
+    List.map tds
+             ~f:(fun td ->
+               let of_jsobject = mk_type td in
+               let name = name_of_td td in
+               let loc = td.ptype_loc in
+               psig_value ~loc (value_description
+                                  ~loc
+                                  ~name:{ td.ptype_name with txt = name }
+                                  ~type_:of_jsobject ~prim:[]))
+  let core_type ty =
+    [%expr fun v -> 42]
+
+  end
+
+module Of_jsobject = struct
+  let str_type_decl =
+    Type_conv.Generator.make_noarg Of_jsobject_expander.str_type_decl
+      ~attributes:[ ]
+  ;;
+
+  let sig_type_decl =
+    Type_conv.Generator.make_noarg Of_jsobject_expander.sig_type_decl
+  ;;
+
+  let extension ~loc:_ ~path:_ ctyp = Of_jsobject_expander.core_type ctyp
+
+  let deriver =
+    Type_conv.add "of_jsobject"
+      ~str_type_decl
+      ~sig_type_decl
+      ~extension
+  ;;
+end
 
 
 let () =
-  Type_conv.add "jsobject"
-                        (* Jsobject_of.deriver *)
-                      (* ; *)
-                        (* Of_jsobject.deriver *)
-                      (* ] *)
-                ~str_type_decl:Jsobject_of.str_type_decl
-                ~sig_type_decl:Jsobject_of.sig_type_decl
-                ~extension:Jsobject_of.extension
-    (* ~sig_exception:[Jsobject_of.deriver] *)
+  Type_conv.add_alias "jsobject"
+                      [Jsobject_of.deriver ;
+                       Of_jsobject.deriver
+                      ]
+                      ~sig_exception:[Jsobject_of.deriver]
+                      ~str_exception:[Jsobject_of.deriver]
   |> Type_conv.ignore;;
