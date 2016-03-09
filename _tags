@@ -13,17 +13,8 @@
 <src/ppx_jsobject_conv.ml{,i}>: package(ppx_core), package(ppx_tools.metaquot), package(ppx_type_conv)
 <src/ppx_jsobject_conv_runtime.ml{,i}>: package(result), package(js_of_ocaml)
 
-
-<**/.svn>: -traverse
-<**/.svn>: not_hygienic
-".bzr": -traverse
-".bzr": not_hygienic
-".hg": -traverse
-".hg": not_hygienic
 ".git": -traverse
 ".git": not_hygienic
-"_darcs": -traverse
-"_darcs": not_hygienic
 
 <ppx_bin_prot>: -traverse
 <ppx_compare>: -traverse
