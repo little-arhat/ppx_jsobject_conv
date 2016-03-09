@@ -6,6 +6,12 @@ val (>|=) : ('a, 'b) Result.result -> ('a -> 'c) -> ('c, 'b) Result.result
 val (>>=) : ('a, 'b) Result.result ->
             ('a -> ('c, 'b) Result.result) -> ('c, 'b) Result.result
 
+(** of_jsobject *)
+(* utilities *)
+
+(* std convs *)
+
+(** jsobject_of *)
 (* utility conversions *)
 val to_js_array : 'a list -> Js.Unsafe.any
 val make_jsobject : (string * Js.Unsafe.any) array -> Js.Unsafe.any
