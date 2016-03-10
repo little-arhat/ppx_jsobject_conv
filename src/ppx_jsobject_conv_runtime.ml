@@ -1,5 +1,6 @@
 
 open Result
+open StdLabels
 
 let map f e = match e with
   | Ok x -> Ok (f x)
@@ -62,6 +63,49 @@ let string_of_jsobject_res st =
   if Js.typeof st = (Js.string "string")
   then Ok(Js.to_string (Js.Unsafe.coerce st))
   else Error("not a string")
+
+let option_of_jsobject_res a__of_jsobject_res obj =
+  match Js.Opt.to_option @@ Js.some obj with
+  | Some(v) -> a__of_jsobject_res v >|= (fun i -> Some(i))
+  | None -> Ok(None)
+
+exception Short_circuit of string
+
+let array_fold_right_short_circuit ~f arr ~init =
+  try
+    Ok(Array.fold_right
+         ~f:(fun el acc ->
+           match f el acc with
+           | Ok(v) -> v
+           | Error(s) -> raise @@ Short_circuit(s))
+         ~init arr)
+  with Short_circuit(s) -> Error(s)
+
+let list_of_jsobject_res a__of_jsobject_res obj =
+  is_array obj >>=
+    (fun arr ->
+      let oarr = Js.to_array arr in
+      array_fold_right_short_circuit
+        ~f:(fun jsel l ->
+          a__of_jsobject_res jsel
+          >|= (fun oel -> oel::l))
+        ~init:[]
+        oarr
+      >|= (fun l -> List.rev l))
+
+let array_of_jsobject_res a__of_jsobject_res obj =
+  is_array obj >>=
+    (fun arr ->
+      let oarr = Js.to_array arr in
+      let ioarr = Array.mapi ~f:(fun i a -> (i, a)) oarr in
+      array_fold_right_short_circuit
+        ~f:(fun (i, jsel) resarr ->
+          a__of_jsobject_res jsel
+          >|= (fun oel ->
+              let () = Array.set resarr i oel in
+              resarr))
+        ~init:oarr
+        ioarr)
 
 (* jsobject_of *)
 (* helpers *)
