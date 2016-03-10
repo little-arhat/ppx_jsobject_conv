@@ -100,7 +100,7 @@ module Jsobject_of_expander = struct
     | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- Unsupported type"
   (* Conversion of tuples *)
   and jsobject_of_tuple (loc, tps) =
-    let fps = List.map ~f:(fun tp -> jsobject_of_type tp) tps in
+    let fps = List.map ~f:jsobject_of_type tps in
     let bindings, pvars, evars = Fun_or_match.map_tmp_vars ~loc fps in
     let in_expr = [%expr
                       to_js_array
@@ -124,19 +124,19 @@ module Jsobject_of_expander = struct
     in Fun_or_match.Match (List.map ~f:item row_fields)
 
   (* Conversion of sum types *)
-  let branch_sum tvars cds =
-    List.map cds ~f:(fun cd ->
+  let jsobject_of_sum cds =
+    let item cd =
       let loc = cd.pcd_loc in
       let cnstr = cd.pcd_name in
       let lid = Located.map lident cnstr in
-      let str = estring ~loc cnstr.txt in
+      let scnstr = estring ~loc cnstr.txt in
       match cd.pcd_args with
       | [] ->
          ppat_construct ~loc lid None -->
-           [%expr to_js_array [jsobject_of_string [%e str]]]
+           [%expr to_js_array [jsobject_of_string [%e scnstr]]]
       | args ->
          let jsobject_of_args = List.map ~f:jsobject_of_type args in
-         let cnstr_expr = [%expr (jsobject_of_string [%e str])] in
+         let cnstr_expr = [%expr (jsobject_of_string [%e scnstr])] in
          let bindings, patts, vars = Fun_or_match.map_tmp_vars ~loc jsobject_of_args in
          let patt =
            match patts with
@@ -148,8 +148,9 @@ module Jsobject_of_expander = struct
                     Nonrecursive
                     bindings
                     [%expr to_js_array
-                           [%e elist ~loc (cnstr_expr :: vars)]])
-  let jsobject_of_sum tps cds = Fun_or_match.Match (branch_sum tps cds)
+                           [%e elist ~loc (cnstr_expr :: vars)]]
+    in
+    Fun_or_match.Match (List.map ~f:item cds)
 
   (* Conversion of record types *)
   let mk_rec_patt loc patt name =
@@ -189,9 +190,9 @@ module Jsobject_of_expander = struct
           | Some ty -> jsobject_of_type ty
           | None -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
-      | Ptype_variant cds -> jsobject_of_sum tps cds
-      | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
+      | Ptype_variant cds -> jsobject_of_sum cds
       | Ptype_record fields -> jsobject_of_record (loc, fields)
+      | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
     in
     let body' = match body with
     | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v ]
