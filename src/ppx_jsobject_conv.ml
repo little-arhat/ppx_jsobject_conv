@@ -257,6 +257,14 @@ module Of_jsobject_expander = struct
     | "t" -> "of_jsobject"
     | tn  -> tn ^ "_of_jsobject"
 
+  let eok ~loc v = pexp_construct ~loc (Located.lident ~loc "Ok") (Some v)
+  let err_simple ~loc s = pexp_construct ~loc (Located.lident ~loc "Error")
+                                         (Some (estring ~loc s))
+  let err_var ~loc s var =
+    let base = estring ~loc s in
+    let full = [%expr [%e base] ^ [%e var]] in
+    pexp_construct ~loc (Located.lident ~loc "Error") (Some full)
+
   let std_type_of_jsobject_res (id : Longident.t Located.t) =
     let txt : Longident.t =
       match id.txt with
@@ -266,44 +274,123 @@ module Of_jsobject_expander = struct
     in
     pexp_ident ~loc:id.loc { id with txt }
 
-  let rec type_of_jsobject (typ: core_type) : Fun_or_match.t =
+  let rec type_of_jsobject (type_name: string) (typ: core_type) : Fun_or_match.t =
     let loc = typ.ptyp_loc in
     match typ with
     | { ptyp_desc = Ptyp_constr (id, args); _ } ->
       let init = std_type_of_jsobject_res id in
-      let args = List.map args ~f:(fun arg ->
-                            Fun_or_match.expr ~loc (type_of_jsobject arg)) in
+      let args = List.map args
+                          ~f:(fun arg ->
+                            Fun_or_match.expr ~loc
+                                              (type_of_jsobject type_name arg)) in
       Fun_or_match.Fun (eapply ~loc init args)
-    | { ptyp_desc = Ptyp_tuple tps; _} -> tuple_of_jsobject (loc, tps)
+    | { ptyp_desc = Ptyp_tuple tps; _} -> tuple_of_jsobject ~loc type_name tps
+    | { ptyp_desc = Ptyp_variant (row_fields, _, _); _ } ->
+       variant_of_jsobject ~loc type_name row_fields
     | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: type_of_jsobject -- Unsupported type"
-  and tuple_of_jsobject (loc, tps) =
-    let fps = List.map ~f:(fun tp -> type_of_jsobject tp) tps in
+  and tuple_of_jsobject ~loc type_name tps =
+    let fps = List.map ~f:(type_of_jsobject type_name) tps in
     let efps = List.map ~f:(Fun_or_match.expr ~loc) fps in
     let _, pvars, evars = Fun_or_match.map_tmp_vars ~loc fps in
     let iefps = List.mapi ~f:(fun i fp -> (i, fp)) efps in
-    let inner_expr = [%expr
-                         Ok([%e pexp_tuple ~loc evars])
-                     ] in
-    let num = List.length fps in
+    let inner_expr = eok ~loc (pexp_tuple ~loc evars) in
     let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
     let body = List.fold_right2
+                 ~init: inner_expr
                  ~f:(fun pvar (i, fp) acc ->
                    let ei = eint ~loc i in
                    [%expr
                        array_get_or_error [%e earr] [%e ei]
                        >>= [%e fp]
                        >>= (fun [%p pvar ] ->
-                                [%e acc])
-                   ])
-                 ~init: inner_expr
-                 pvars iefps in
+                                [%e acc])])
+                 pvars iefps
+    in
+    let num = List.length fps in
     let outer_expr = [%expr
                          is_array_of_size_n v [%e eint ~loc num]
                          >>= (fun [%p parr] -> [%e body])
                      ] in
-    (* let expr = pexp_let ~loc Nonrecursive bindings final_expr in *)
-    (* let b = eapply ~loc (evar ~loc ">>=") [evar ~loc "a"; evar ~loc "b"] in *)
     Fun_or_match.Fun outer_expr
+
+  and variant_of_jsobject ~loc type_name row_fields =
+    let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
+    let item = function
+      (* p. variant constructor w/o arguments*)
+      | Rtag (cnstr, _, true , []) ->
+         let ecnstr = Ast_helper.Exp.variant ~loc cnstr None in
+         pstring ~loc cnstr -->
+           [%expr [%e eok ~loc ecnstr]]
+      (* p. variant constructor w argument *)
+      | Rtag (cnstr, _, false, [tp]) ->
+         let ev, pv = evar ~loc "v0", pvar ~loc "v0" in
+         let cnstr_fun =
+           Fun_or_match.expr ~loc (type_of_jsobject type_name tp) in
+         let ecnstr = Ast_helper.Exp.variant ~loc cnstr (Some ev) in
+         pstring ~loc cnstr -->
+           [%expr
+               array_get_or_error [%e earr] 1
+               >>= [%e cnstr_fun]
+               >>= (fun [%p pv] ->
+                    [%e eok ~loc ecnstr]
+               )]
+      | _ -> Location.raise_errorf "ppx_jsobject_conv: unsupported variant_of_jsobject"
+    in
+    let matches = List.map ~f:item row_fields in
+    let empty_match = [pvar ~loc "unknown" -->
+                         err_var ~loc
+                                 ("Unknown constructor for type " ^ type_name ^ " : ")
+                                 (evar ~loc "unknown")] in
+    let match_expr = Fun_or_match.expr ~loc @@
+                 Fun_or_match.Match (matches @ empty_match) in
+    let outer_expr = [%expr
+                      is_array v >>=
+                     (fun [%p parr] ->
+                       array_get_or_error [%e earr] 0
+                       >>= string_of_jsobject_res
+                       >>= [%e match_expr])]
+    in Fun_or_match.Fun outer_expr
+
+  let sum_of_jsobject ~loc type_name cds =
+    let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
+    let item cd =
+      let cnstr = cd.pcd_name in
+      let pcnstr = pstring ~loc cnstr.txt in
+      match cd.pcd_args with
+      | [] ->
+         pcnstr -->
+           [%expr [%e eok ~loc (econstruct cd None)]]
+      | args ->
+         let fargs = List.map ~f:(type_of_jsobject type_name) args in
+         let efargs = List.map ~f:(Fun_or_match.expr ~loc) fargs in
+         let _, pvars, evars = Fun_or_match.map_tmp_vars ~loc fargs in
+         (* first element is constructor name *)
+         let iefargs = List.mapi ~f:(fun i fp -> (i + 1, fp)) efargs in
+         let econstr = econstruct cd (Some (pexp_tuple ~loc evars)) in
+         let inner_expr = eok ~loc econstr in
+         let body = List.fold_right2
+                      ~init: inner_expr
+                      ~f:(fun pvar (i, fa) acc ->
+                        let ei = eint ~loc i in
+                        [%expr
+                            array_get_or_error [%e earr] [%e ei]
+                         >>= [%e fa]
+                         >>= (fun [%p pvar ] ->
+                           [%e acc])])
+                      pvars iefargs
+         in
+         pcnstr --> body
+    in
+    let matches = Fun_or_match.expr ~loc @@
+                    Fun_or_match.Match (List.map ~f:item cds) in
+    let outer_expr = [%expr
+                         is_array v >>=
+                        (fun [%p parr] ->
+                          array_get_or_error [%e earr] 0
+                          >>= string_of_jsobject_res
+                          >>= [%e matches])]
+    in Fun_or_match.Fun outer_expr
+
 
   let td_of_jsobject td =
     let tps = List.map td.ptype_params ~f:(fun tp -> (get_type_param_name tp).txt) in
@@ -315,9 +402,11 @@ module Of_jsobject_expander = struct
       match td.ptype_kind with
       | Ptype_abstract -> begin
           match td.ptype_manifest with
-          | Some ty -> type_of_jsobject ty
+          | Some ty -> type_of_jsobject td.ptype_name.txt ty
           | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
+      | Ptype_variant cds -> sum_of_jsobject ~loc:td.ptype_loc td.ptype_name.txt cds
+      | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
       | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: suka"
     in
     let body' = match body with
