@@ -45,14 +45,20 @@ let array_get_or_error arr ind =
   | None -> Error("Expceted value at index" ^ (string_of_int ind))
 
 (* conversion *)
-let int_of_number_res num =
+let int_of_jsobject_res num =
   if Js.typeof num = (Js.string "number")
   then Ok(int_of_float @@
             Js.float_of_number @@
               Js.Unsafe.coerce num)
   else Error("not a number")
 
-let string_of_jsstring_res st =
+let float_of_jsobject_res num =
+  if Js.typeof num = (Js.string "number")
+  then Ok(Js.float_of_number @@
+            Js.Unsafe.coerce num)
+  else Error("not a number")
+
+let string_of_jsobject_res st =
   if Js.typeof st = (Js.string "string")
   then Ok(Js.to_string (Js.Unsafe.coerce st))
   else Error("not a string")
