@@ -381,14 +381,19 @@ module Of_jsobject_expander = struct
          in
          pcnstr --> body
     in
-    let matches = Fun_or_match.expr ~loc @@
-                    Fun_or_match.Match (List.map ~f:item cds) in
+    let matches = List.map ~f:item cds in
+    let empty_match = [pvar ~loc "unknown" -->
+                         err_var ~loc
+                                 ("Unknown constructor for type " ^ type_name ^ " : ")
+                                 (evar ~loc "unknown")] in
+    let match_expr  = Fun_or_match.expr ~loc @@
+                        Fun_or_match.Match (matches @ empty_match) in
     let outer_expr = [%expr
                          is_array v >>=
                         (fun [%p parr] ->
                           array_get_or_error [%e earr] 0
                           >>= string_of_jsobject_res
-                          >>= [%e matches])]
+                          >>= [%e match_expr])]
     in Fun_or_match.Fun outer_expr
 
 
