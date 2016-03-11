@@ -1,5 +1,6 @@
 type x = int * string * int [@@deriving jsobject]
-type a = A | B of string | C of x [@@deriving jsobject]
+type f = Af | Bf of string | Cf of int * string * int [@@deriving jsobject]
+type a = Aa | Ba of string | Ca of x [@@deriving jsobject]
 type d = D of (int * string) | E of (string * int) [@@deriving jsobject]
 
 
