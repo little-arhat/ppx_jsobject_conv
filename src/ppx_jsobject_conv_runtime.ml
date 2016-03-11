@@ -19,12 +19,24 @@ let result_of_bool v er = if v then Ok(v) else Error(er)
 (* of_jsobject *)
 (* heplers *)
 
-let is_array obj  =
-  result_of_bool (Js.instanceof obj Js.array_empty)
+exception Short_circuit of string
+
+let array_fold_right_short_circuit ~f arr ~init =
+  try
+    Ok(Array.fold_right
+         ~f:(fun el acc ->
+           match f el acc with
+           | Ok(v) -> v
+           | Error(s) -> raise @@ Short_circuit(s))
+         ~init arr)
+  with Short_circuit(s) -> Error(s)
+
+let is_array v  =
+  result_of_bool (Js.instanceof v Js.array_empty)
                  ("Expected array, got: " ^
-                    (Js.to_bytestring @@ Js.typeof obj))
+                    (Js.to_bytestring @@ Js.typeof v))
   >|= (fun _ ->
-    let arr:'a Js.t #Js.js_array Js.t = Js.Unsafe.coerce obj
+    let arr:'a Js.t #Js.js_array Js.t = Js.Unsafe.coerce v
     in arr)
 
 let array_length (arr : 'a Js.t #Js.js_array Js.t) : int =
@@ -43,7 +55,7 @@ let is_array_of_size_n obj expected =
 let array_get_or_error arr ind =
   match Js.Optdef.to_option @@ Js.array_get arr ind with
   | Some v -> Ok(v)
-  | None -> Error("Expceted value at index" ^ (string_of_int ind))
+  | None -> Error("Expceted value at index: " ^ (string_of_int ind))
 
 (* conversion *)
 let int_of_jsobject_res num =
@@ -68,18 +80,6 @@ let option_of_jsobject_res a__of_jsobject_res obj =
   match Js.Opt.to_option @@ Js.some obj with
   | Some(v) -> a__of_jsobject_res v >|= (fun i -> Some(i))
   | None -> Ok(None)
-
-exception Short_circuit of string
-
-let array_fold_right_short_circuit ~f arr ~init =
-  try
-    Ok(Array.fold_right
-         ~f:(fun el acc ->
-           match f el acc with
-           | Ok(v) -> v
-           | Error(s) -> raise @@ Short_circuit(s))
-         ~init arr)
-  with Short_circuit(s) -> Error(s)
 
 let list_of_jsobject_res a__of_jsobject_res obj =
   is_array obj >>=
