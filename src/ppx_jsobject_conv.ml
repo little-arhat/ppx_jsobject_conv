@@ -396,6 +396,35 @@ module Of_jsobject_expander = struct
                           >>= [%e match_expr])]
     in Fun_or_match.Fun outer_expr
 
+  let mk_rec_details type_name = function
+    | {pld_name = {txt=name; loc}; pld_type = tp; _ } ->
+       let vname = evar ~loc ("v_" ^ name) in
+       let ekey = evar ~loc name in
+       let pname = pvar ~loc ("v_" ^ name) in
+       let cnv = Fun_or_match.unroll
+                   ~loc vname (type_of_jsobject type_name tp) in
+       let lid = Located.lident ~loc name in
+       ((lid, vname), (pname, ekey, cnv))
+
+  let record_of_jsobject ~loc type_name fields =
+    let rec_details = List.map ~f:(mk_rec_details type_name) fields in
+    let lidexprs, pkc = List.split rec_details in
+    let lidexprs = List.map ~f:(fun (le, _) -> le) rec_details in
+    let inner_expr = eok ~loc (Ast_helper.Exp.record ~loc lidexprs None) in
+    let eobj, pobj = evar ~loc "obj", pvar ~loc "obj" in
+    let body = List.fold_right
+                 ~init: inner_expr
+                 ~f:(fun (pvar, ekey, cnv) acc ->
+                   [%expr
+                       object_get_or_error [%e eobj] [%e ekey]
+                       >>= [%e cnv]
+                       >>= [%e acc]]) pkc
+    in
+    let outer_expr = [%expr is_object v >>=
+                        (fun [%p pobj] ->
+                          [%e body])] in
+    Fun_or_match.Fun outer_expr
+
 
   let td_of_jsobject td =
     let tps = List.map td.ptype_params ~f:(fun tp -> (get_type_param_name tp).txt) in
@@ -403,16 +432,17 @@ module Of_jsobject_expander = struct
     let is_private = (match td.ptype_private with Private -> true | Public -> false) in
     if is_private
     then Location.raise_errorf ~loc "of_sexp is not supported for private type";
+    let type_name = td.ptype_name.txt in
     let body =
       match td.ptype_kind with
       | Ptype_abstract -> begin
           match td.ptype_manifest with
-          | Some ty -> type_of_jsobject td.ptype_name.txt ty
+          | Some ty -> type_of_jsobject type_name ty
           | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
-      | Ptype_variant cds -> sum_of_jsobject ~loc:td.ptype_loc td.ptype_name.txt cds
+      | Ptype_variant cds -> sum_of_jsobject ~loc type_name cds
+      | Ptype_record fields -> record_of_jsobject ~loc type_name fields
       | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
-      | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: suka"
     in
     let body' = match body with
     | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v]

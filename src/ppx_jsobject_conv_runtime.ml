@@ -31,6 +31,12 @@ let array_fold_right_short_circuit ~f arr ~init =
          ~init arr)
   with Short_circuit(s) -> Error(s)
 
+let is_object v =
+  result_of_bool (Js.typeof v = (Js.string "object"))
+                 ("Expected object, got: " ^
+                    (Js.to_bytestring @@ Js.typeof v))
+  >|= (fun _ -> v)
+
 let is_array v  =
   result_of_bool (Js.instanceof v Js.array_empty)
                  ("Expected array, got: " ^
@@ -56,6 +62,12 @@ let array_get_or_error arr ind =
   match Js.Optdef.to_option @@ Js.array_get arr ind with
   | Some v -> Ok(v)
   | None -> Error("Expceted value at index: " ^ (string_of_int ind))
+
+let object_get_or_error (obj: 'a Js.t) (key:string) =
+  let maybe_value:('a Js.t) Js.optdef = Js.Unsafe.get obj key in
+  match Js.Optdef.to_option maybe_value with
+  | Some(value) -> Ok(value)
+  | None -> Error("Expected value by key: " ^ key)
 
 (* conversion *)
 let int_of_jsobject_res num =
