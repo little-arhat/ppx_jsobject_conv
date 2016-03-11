@@ -160,20 +160,20 @@ module Jsobject_of_expander = struct
     in
     patt @ [p]
 
-  let jsobject_of_record (loc,fields) =
-    let coll (patts, exprs) = function
+  let jsobject_of_record ~loc fields =
+    let item (patts, exprs) = function
       | {pld_name = {txt=name; loc}; pld_type = tp; _ } ->
           let patts = mk_rec_patt loc patts name in
           let vname = evar ~loc ("v_" ^ name) in
           let fname = estring ~loc name in
-          let cnv_expr = Fun_or_match.unroll ~loc vname (jsobject_of_type tp) in
+          let cnv = Fun_or_match.unroll ~loc vname (jsobject_of_type tp) in
           let expr =
             [%expr
-                ([%e fname], [%e cnv_expr])]
+                ([%e fname], [%e cnv])]
           in
           patts, expr::exprs
     in
-    let patts, exprs = List.fold_left ~f:coll ~init:([], []) fields in
+    let patts, exprs = List.fold_left ~f:item ~init:([], []) fields in
     let expr = Ast_helper.Exp.array ~loc (List.rev exprs) in
     Fun_or_match.Match [
         ppat_record ~loc patts Closed -->
@@ -191,7 +191,7 @@ module Jsobject_of_expander = struct
           | None -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
       | Ptype_variant cds -> jsobject_of_sum cds
-      | Ptype_record fields -> jsobject_of_record (loc, fields)
+      | Ptype_record fields -> jsobject_of_record ~loc fields
       | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
     in
     let body' = match body with
