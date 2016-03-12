@@ -12,7 +12,10 @@ module Type_conv = Ppx_type_conv.Std.Type_conv
 let ( --> ) lhs rhs = case ~guard:None ~lhs ~rhs
 
 let wrap_runtime decls =
-    [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
+    [%expr let open Ppx_jsobject_conv_runtime in [%e decls]]
+
+let input_evar ~loc= evar ~loc "v"
+let input_pvar ~loc= pvar ~loc "v"
 
 (* Courtesy of ppx_sexp_conv *)
 module Fun_or_match = struct
@@ -195,8 +198,9 @@ module Jsobject_of_expander = struct
       | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
     in
     let body' = match body with
-    | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v ]
-    | Fun_or_match.Match matchings -> pexp_function ~loc matchings
+      | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
+                                            [%e fun_expr] [%e input_evar ~loc]]
+      | Fun_or_match.Match matchings -> pexp_function ~loc matchings
     in
     let typ = mk_type td in
     let func_name = name_of_td td in
@@ -254,12 +258,14 @@ module Of_jsobject_expander = struct
         [%type: Js.Unsafe.any -> ([%t ty], string) Result.t ])
 
   let name_of_td td = match td.ptype_name.txt with
-    | "t" -> "of_jsobject"
-    | tn  -> tn ^ "_of_jsobject"
+    | "t" -> "of_jsobject_res"
+    | tn  -> tn ^ "_of_jsobject_res"
 
-  let eok ~loc v = pexp_construct ~loc (Located.lident ~loc "Ok") (Some v)
-  let err_simple ~loc s = pexp_construct ~loc (Located.lident ~loc "Error")
-                                         (Some (estring ~loc s))
+  let eok ~loc v = pexp_construct
+                     ~loc (Located.lident ~loc "Result.Ok") (Some v)
+  let err_simple ~loc s = pexp_construct
+                            ~loc (Located.lident ~loc "Result.Error")
+                            (Some (estring ~loc s))
   let err_var ~loc s var =
     let base = estring ~loc s in
     let full = [%expr [%e base] ^ [%e var]] in
@@ -308,8 +314,10 @@ module Of_jsobject_expander = struct
     in
     let num = List.length fps in
     let outer_expr = [%expr
-                         is_array_of_size_n v [%e eint ~loc num]
-                         >>= (fun [%p parr] -> [%e body])
+                         (fun t ->
+                           is_array_of_size_n
+                             t [%e eint ~loc num]
+                           >>= (fun [%p parr] -> [%e body]))
                      ] in
     Fun_or_match.Fun outer_expr
 
@@ -344,11 +352,12 @@ module Of_jsobject_expander = struct
     let match_expr = Fun_or_match.expr ~loc @@
                  Fun_or_match.Match (matches @ empty_match) in
     let outer_expr = [%expr
-                      is_array v >>=
-                     (fun [%p parr] ->
-                       array_get_or_error [%e earr] 0
-                       >>= string_of_jsobject_res
-                       >>= [%e match_expr])]
+                         (fun pv ->
+                           is_array pv >>=
+                             (fun [%p parr] ->
+                               array_get_or_error [%e earr] 0
+                               >>= string_of_jsobject_res
+                               >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
 
   let sum_of_jsobject ~loc type_name cds =
@@ -368,6 +377,10 @@ module Of_jsobject_expander = struct
          let iefargs = List.mapi ~f:(fun i fp -> (i + 1, fp)) efargs in
          let econstr = econstruct cd (Some (pexp_tuple ~loc evars)) in
          let inner_expr = eok ~loc econstr in
+         (* (fun [%p input_pvar ~loc ] -> [%e fa] v)
+            not very good, maybe generate randomized "input_vars"
+            and pass them from the top?
+          *)
          let body = List.fold_right2
                       ~init: inner_expr
                       ~f:(fun pvar (i, fa) acc ->
@@ -389,20 +402,21 @@ module Of_jsobject_expander = struct
     let match_expr  = Fun_or_match.expr ~loc @@
                         Fun_or_match.Match (matches @ empty_match) in
     let outer_expr = [%expr
-                         is_array v >>=
-                        (fun [%p parr] ->
-                          array_get_or_error [%e earr] 0
-                          >>= string_of_jsobject_res
-                          >>= [%e match_expr])]
+                         (fun s ->
+                           is_array [%e input_evar ~loc] >>=
+                             (fun [%p parr] ->
+                               array_get_or_error [%e earr] 0
+                               >>= string_of_jsobject_res
+                               >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
 
   let mk_rec_details type_name = function
     | {pld_name = {txt=name; loc}; pld_type = tp; _ } ->
        let vname = evar ~loc ("v_" ^ name) in
-       let ekey = evar ~loc name in
+       let ekey = estring ~loc name in
        let pname = pvar ~loc ("v_" ^ name) in
-       let cnv = Fun_or_match.unroll
-                   ~loc vname (type_of_jsobject type_name tp) in
+       let cnv = Fun_or_match.expr
+                   ~loc (type_of_jsobject type_name tp) in
        let lid = Located.lident ~loc name in
        ((lid, vname), (pname, ekey, cnv))
 
@@ -418,11 +432,15 @@ module Of_jsobject_expander = struct
                    [%expr
                        object_get_or_error [%e eobj] [%e ekey]
                        >>= [%e cnv]
-                       >>= [%e acc]]) pkc
+                       >>= (fun [%p pvar] ->
+                         [%e acc])]
+                 ) pkc
     in
-    let outer_expr = [%expr is_object v >>=
-                        (fun [%p pobj] ->
-                          [%e body])] in
+    let outer_expr = [%expr
+                         (fun r ->
+                           is_object [%e input_evar ~loc] >>=
+                             (fun [%p pobj] ->
+                               [%e body]))] in
     Fun_or_match.Fun outer_expr
 
 
@@ -445,8 +463,9 @@ module Of_jsobject_expander = struct
       | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
     in
     let body' = match body with
-    | Fun_or_match.Fun fun_expr -> [%expr fun v -> [%e fun_expr] v]
-    | Fun_or_match.Match matchings -> pexp_function ~loc matchings
+      | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
+                                            [%e fun_expr] [%e input_evar ~loc]]
+      | Fun_or_match.Match matchings -> pexp_function ~loc matchings
     in
     let typ = mk_type td in
     let func_name = name_of_td td in
@@ -474,7 +493,8 @@ module Of_jsobject_expander = struct
                                   ~name:{ td.ptype_name with txt = name }
                                   ~type_:of_jsobject ~prim:[]))
   let core_type ty =
-    [%expr fun v -> 42]
+    (* XXX: empty type_name? how is core_type use*)
+    type_of_jsobject "" ty |> Fun_or_match.expr ~loc:ty.ptyp_loc
 
   end
 

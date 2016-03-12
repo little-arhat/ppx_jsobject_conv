@@ -1,6 +1,9 @@
 
-open Result
 open StdLabels
+
+module Js = Js
+module Result = Result
+open Result
 
 let map f e = match e with
   | Ok x -> Ok (f x)
@@ -106,18 +109,8 @@ let list_of_jsobject_res a__of_jsobject_res obj =
       >|= (fun l -> List.rev l))
 
 let array_of_jsobject_res a__of_jsobject_res obj =
-  is_array obj >>=
-    (fun arr ->
-      let oarr = Js.to_array arr in
-      let ioarr = Array.mapi ~f:(fun i a -> (i, a)) oarr in
-      array_fold_right_short_circuit
-        ~f:(fun (i, jsel) resarr ->
-          a__of_jsobject_res jsel
-          >|= (fun oel ->
-              let () = Array.set resarr i oel in
-              resarr))
-        ~init:oarr
-        ioarr)
+  list_of_jsobject_res a__of_jsobject_res obj >|= Array.of_list
+
 
 (* jsobject_of *)
 (* helpers *)
@@ -151,6 +144,3 @@ let jsobject_of_list jsobject_of__a lst =
   to_js_array @@ List.rev  @@ List.rev_map jsobject_of__a lst
 let jsobject_of_array jsobject_of__a arr =
   to_js_array @@ Array.to_list @@ Array.map jsobject_of__a arr
-
-module Js = Js
-module Result = Result
