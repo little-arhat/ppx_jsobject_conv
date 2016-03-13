@@ -12,7 +12,7 @@ module Type_conv = Ppx_type_conv.Std.Type_conv
 let ( --> ) lhs rhs = case ~guard:None ~lhs ~rhs
 
 let wrap_runtime decls =
-    [%expr let open Ppx_jsobject_conv_runtime in [%e decls]]
+    [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
 
 let input_evar ~loc= evar ~loc "v"
 let input_pvar ~loc= pvar ~loc "v"
@@ -269,7 +269,7 @@ module Of_jsobject_expander = struct
   let err_var ~loc s var =
     let base = estring ~loc s in
     let full = [%expr [%e base] ^ [%e var]] in
-    pexp_construct ~loc (Located.lident ~loc "Error") (Some full)
+    pexp_construct ~loc (Located.lident ~loc "Result.Error") (Some full)
 
   let std_type_of_jsobject_res (id : Longident.t Located.t) =
     let txt : Longident.t =
