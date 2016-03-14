@@ -61,10 +61,10 @@ let show_user = function
      Printf.sprintf "{age=%d;name=%s;status=%s}" age name (show_status status)
 
 (* trick ocamldep (maybe do this via myocamlbuild and _tags) *)
+(* fix this *)
 module Pjcr = Ppx_jsobject_conv_runtime
 
 let ()=
-  (* fix this *)
   let open Result in
   let full_user = "{\"age\": 18, \"name\":\"Varya\", \"status\":[\"Created\"]}" in
   let partial_user1 = "{}" in
