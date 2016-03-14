@@ -5,17 +5,14 @@ build:
 	cp pkg/META.in pkg/META
 	ocaml pkg/build.ml native=true native-dynlink=true
 
-# ppx-jsobject:
-# 	ocamlfind ocamlopt -predicates ppx_driver -o ppx-jsobject \
-# 		_build/src/$(NAME).cmxa -linkpkg -package ppx_type_conv \
-# 		-package ppx_driver ppx_driver_runner.cmxa
 
-# driver: build ppx-jsobject
-
-# test: build
-# 	rm -rf _build/src_test/
-# 	ocamlbuild -j 0 -use-ocamlfind -classic-display \
-# 						 src_test/test_ppx_yojson.byte --
+test: build
+	rm -rf _build/src_test/
+	ocamlbuild -j 0 -use-ocamlfind -classic-display \
+						 src_test/test.byte
+	js_of_ocaml --noinline --opt=1 ./_build/src_test/test.byte -o _build/src_test/test.js
+	ln -s _build/src_test/test.js test.js
+	node test.js
 
 $(NAME).install:
 	$(MAKE) build
@@ -24,6 +21,7 @@ clean:
 	ocamlbuild -clean
 	rm -f $(NAME).install
 	rm -f pkg/META
+	rm -f test.js
 
 install: $(NAME).install
 	opam-installer -i --prefix $(PREFIX) $(NAME).install
@@ -35,7 +33,7 @@ reinstall: $(NAME).install
 	opam-installer -u --prefix $(PREFIX) $(NAME).install &> /dev/null || true
 	opam-installer -i --prefix $(PREFIX) $(NAME).install
 
-.PHONY: build driver clean
+.PHONY: build driver test clean
 
 
 VERSION      := $$(opam query --version)

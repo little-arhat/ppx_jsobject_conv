@@ -14,3 +14,5 @@ setup.log
 pkg/META
 ppx_jsobject.byte
 ppx_jsobject_conv.install
+test.byte
+test.js

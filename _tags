@@ -1,4 +1,4 @@
-true: warn(@5@8@10@11@12@14@23@24@26@29@40), bin_annot, safe_string
+true: warn(@5@8@10@11@12@14@23@24@26@29@40), bin_annot, safe_string, debug
 
 <**/*.ml{,i}>: no_alias_deps
 # This prevents the implicit addition of -ppx options by ocamlfind
@@ -9,11 +9,12 @@ true: warn(@5@8@10@11@12@14@23@24@26@29@40), bin_annot, safe_string
 <bin/*>: predicate(ppx_driver)
 <bin/*>: linkall
 <bin/*>: thread
-<bin/*.{ml,byte}>: debug, package(ppx_type_conv), package(ppx_driver)
+<bin/*.{ml,byte}>: package(ppx_type_conv), package(ppx_driver)
 
-<src/*.ml{,i}>: debug
 <src/ppx_jsobject_conv.ml{,i}>: package(ppx_core), package(ppx_tools.metaquot), package(ppx_type_conv)
 <src/ppx_jsobject_conv_runtime.ml{,i}>: package(result), package(js_of_ocaml)
+
+<src_test/*.{ml,byte,native}>: debug, package(js_of_ocaml), package(js_of_ocaml.ppx), package(result), use_ppx_jsobject_conv
 
 ".git": -traverse
 ".git": not_hygienic
