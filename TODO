@@ -1,0 +1,8 @@
+
+1) non existing key in jsobject -- valid option value (None)
+2) move Optdef.t handling from generated code to individual funcs?
+3) is_defined: 'a Optdef.t -> ('a, string) Result.t
+4) insert it when needed only
+5) tests
+6) alternative conversions for sum types/variants -- type op = Gte of int | Lte of int  -- {gte: x} or {lte:x}
+7) support for renames ^ $gte
