@@ -1,6 +1,10 @@
 
-module Js : (module type of Js)
-module Result : (module type of Result)
+(* module Js : (module type of Js) *)
+(* module Result : (module type of Result) *)
+
+include module type of Js
+include module type of Result
+
 
 (* error handling *)
 val (>|=) : ('a, 'b) Result.result -> ('a -> 'c) -> ('c, 'b) Result.result

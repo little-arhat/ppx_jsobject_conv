@@ -1,10 +1,13 @@
 
 open StdLabels
 
-module Js = Js
-module Result = Result
+(* module Js = Js *)
+(* module Result = Result *)
+include Js
+include Result
 
-open Result
+(* open Result *)
+
 
 let map f e = match e with
   | Ok x -> Ok (f x)
@@ -49,13 +52,13 @@ let is_array v  =
     let arr:'a Js.t #Js.js_array Js.t = Js.Unsafe.coerce v
     in arr)
 
-let array_length (arr : 'a Js.t #Js.js_array Js.t) : int =
+let array_length_f (arr : 'a Js.t #Js.js_array Js.t) : int =
   (Js.Unsafe.meth_call arr "length" [||])
 
 let is_array_of_size_n obj expected =
   is_array obj >>=
     (fun arr ->
-      let got = array_length arr in
+      let got = array_length_f arr in
       result_of_bool (expected = got)
                      (Printf.sprintf
                         "Expected array of length %d, got: %d"
