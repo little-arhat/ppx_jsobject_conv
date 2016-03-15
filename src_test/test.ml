@@ -88,9 +88,9 @@ let run_test name inp conv_func show_func =
   let parsed = JSON.parse inp in
   match conv_func parsed with
   | Ok(converted) ->
-     Printf.printf "OK: [%s] %s  -- %s\n" name inp (show_func converted)
+     Printf.printf "OK [%s]: %s  --> %s\n" name inp (show_func converted)
   | Error(msg) ->
-     Printf.printf "ERR: [%s] %s -- %s\n" name inp msg
+     Printf.printf "ERR [%s]: %s --> %s\n" name inp msg
 
 let ()=
   let open Result in
