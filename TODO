@@ -9,11 +9,19 @@
 4) insert it when needed only
 5) tests
 6) alternative conversions for sum types/variants -- type op = Gte of int | Lte of int  -- {gte: x} or {lte:x}
+   maybe we should convert null-ar constructors as just strings? (optionally)
+     type sex = Male | Female [@@deriving jsobject]
+     jsobject_of_sex Male -> 'Male'; as opposed to ['Male']
+       this will complicate js -> ocaml converter
 7) support for renames ^ $gte; easy [@@jsobject, lowercase] or smth, for uniform conversions
 8) simple objects translations?
 9) functions:
       - for callbacks, that should receive js objects, convert it to wrapped functions,
         where wrapper will convert types;
+
+10) defaults -- implement by this lib or leave it to logic?
+    not to hard to implement for basic types: add ?default arg and pass it in codegen
+    not sure about complex types, where should typechecking be implemented?
 
 Related problems, but probably out of the scope:
    Convert function({a:{}, b:{}, c:{}}), where some of the keys may be absent,
