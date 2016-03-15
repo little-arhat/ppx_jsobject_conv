@@ -11,11 +11,11 @@ include Result
 
 let map f e = match e with
   | Ok x -> Ok (f x)
-  | Error s -> Error s
+  | Error s -> Result.Error s
 
 let flat_map f e = match e with
   | Ok x -> f x
-  | Error s -> Error s
+  | Error s -> Result.Error s
 
 let (>|=) e f = map f e
 
@@ -126,7 +126,7 @@ let new_array l =
 let to_js_array l =
   let arr = new_array @@ List.length l in
   let set = Js.array_set arr in
-  let () = List.iteri set l in
+  let () = List.iteri ~f:set l in
   arr
 
 let make_jsobject pairs =
@@ -145,6 +145,6 @@ let jsobject_of_option jsobject_of__a = function
   | None -> inject @@ Js.null
 
 let jsobject_of_list jsobject_of__a lst =
-  to_js_array @@ List.rev  @@ List.rev_map jsobject_of__a lst
+  to_js_array @@ List.rev  @@ List.rev_map ~f:jsobject_of__a lst
 let jsobject_of_array jsobject_of__a arr =
-  to_js_array @@ Array.to_list @@ Array.map jsobject_of__a arr
+  to_js_array @@ Array.to_list @@ Array.map ~f:jsobject_of__a arr
