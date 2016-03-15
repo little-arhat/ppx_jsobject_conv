@@ -15,17 +15,28 @@ let input_evar ~loc= evar ~loc "v"
 let input_pvar ~loc= pvar ~loc "v"
 
 module Attrs = struct
-  let rename =
-    Attribute.declare "jsobject.rename"
+  let name =
+    Attribute.declare "jsobject.name"
                       Attribute.Context.constructor_declaration
                       (Ast_pattern.single_expr_payload
                          (Ast_pattern.estring Ast_pattern.__))
                       (fun x -> x)
 
   let constructor_name cd  =
-    match Attribute.get rename cd with
+    match Attribute.get name cd with
     | Some(v) -> v
     | None -> cd.pcd_name.txt
+
+  let key =
+    Attribute.declare "jsobject.key"
+                      Attribute.Context.label_declaration
+                      (Ast_pattern.single_expr_payload
+                         (Ast_pattern.estring Ast_pattern.__))
+                      (fun x -> x)
+  let field_name ld =
+    match Attribute.get key ld with
+    | Some(v) -> v
+    | None -> ld.pld_name.txt
 
 end
 
@@ -180,14 +191,14 @@ module Jsobject_of_expander = struct
 
   let jsobject_of_record ~loc fields =
     let item (patts, exprs) = function
-      | {pld_name = {txt=name; loc}; pld_type = tp; _ } ->
+      | {pld_name = {txt=name; loc}; pld_type = tp; _ } as ld ->
           let patts = mk_rec_patt loc patts name in
           let vname = evar ~loc ("v_" ^ name) in
-          let fname = estring ~loc name in
+          let field_name = estring ~loc (Attrs.field_name ld) in
           let cnv = Fun_or_match.unroll ~loc vname (jsobject_of_type tp) in
           let expr =
             [%expr
-                ([%e fname], [%e cnv])]
+                ([%e field_name], [%e cnv])]
           in
           patts, expr::exprs
     in
@@ -250,7 +261,9 @@ module Jsobject_of = struct
   let str_type_decl =
     Type_conv.Generator.make_noarg
       Jsobject_of_expander.str_type_decl
-      ~attributes:[Attribute.T Attrs.rename]
+      ~attributes:[Attribute.T Attrs.name;
+                   Attribute.T Attrs.key;
+                  ]
   ;;
 
   let sig_type_decl =
@@ -433,29 +446,29 @@ module Of_jsobject_expander = struct
     in Fun_or_match.Fun outer_expr
 
   let mk_rec_details type_name = function
-    | {pld_name = {txt=name; loc}; pld_type = tp; _ } ->
+    | {pld_name = {txt=name; loc}; pld_type = tp; _ } as ld ->
        let vname = evar ~loc ("v_" ^ name) in
-       let ekey = estring ~loc name in
+       let field_name = estring ~loc (Attrs.field_name ld) in
        let pname = pvar ~loc ("v_" ^ name) in
        let cnv = Fun_or_match.expr
                    ~loc (type_of_jsobject type_name tp) in
        let lid = Located.lident ~loc name in
-       ((lid, vname), (pname, ekey, cnv))
+       ((lid, vname), (pname, field_name, cnv))
 
   let record_of_jsobject ~loc type_name fields =
     let rec_details = List.map ~f:(mk_rec_details type_name) fields in
-    let lidexprs, pkc = List.split rec_details in
+    let lidexprs, pfc = List.split rec_details in
     let inner_expr = eok ~loc (Ast_helper.Exp.record ~loc lidexprs None) in
     let eobj, pobj = evar ~loc "obj", pvar ~loc "obj" in
     let body = List.fold_right
                  ~init: inner_expr
-                 ~f:(fun (pvar, ekey, cnv) acc ->
+                 ~f:(fun (pvar, field_name, cnv) acc ->
                    [%expr
-                       object_get_key [%e eobj] [%e ekey]
+                       object_get_key [%e eobj] [%e field_name]
                        >>= [%e cnv]
                        >>= (fun [%p pvar] ->
                          [%e acc])]
-                 ) pkc
+                 ) pfc
     in
     let outer_expr = [%expr
                          (fun r ->
@@ -521,7 +534,9 @@ module Of_jsobject = struct
   let str_type_decl =
     Type_conv.Generator.make_noarg
       Of_jsobject_expander.str_type_decl
-      ~attributes:[Attribute.T Attrs.rename]
+      ~attributes:[Attribute.T Attrs.name;
+                   Attribute.T Attrs.key;
+                  ]
   ;;
 
   let sig_type_decl =

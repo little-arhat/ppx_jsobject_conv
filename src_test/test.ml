@@ -3,10 +3,16 @@ open Result
 
 type x = int * string * int [@@deriving jsobject]
 type f = Af | Bf of string | Cf of int * string * int [@@deriving jsobject]
-type a = Gt [@rename "$gt"]
-       | Lt of string [@rename "$lt"]
-       | Eq of x [@rename "$eq"] [@@deriving jsobject]
+type a = Gt [@name "$gt"]
+       | Lt of string [@name "$lt"]
+       | Eq of x [@name "$eq"] [@@deriving jsobject]
 type d = D of (int * string) | E of (string * int) [@@deriving jsobject]
+
+type go_style_struct = {
+    field_name: string [@key "FieldName"]
+  } [@@deriving jsobject]
+let show_go_style_struct = function
+  | {field_name} -> Printf.sprintf "{field_name=%s}" field_name
 
 
 type maybe_int = int option [@@deriving jsobject]
@@ -77,12 +83,14 @@ let ()=
   let puo2 = json_parse partial_user2 in
   let puo3 = json_parse partial_user3 in
   let () = Firebug.console##log (fuo) in
+  let goss = JSON.parse go_style_struct in
   let fu_res = user_of_jsobject_res fuo in
   let should_fail_fu_res = user_of_jsobject_res puo1 in
   let nu0_res = Nullable.user_of_jsobject_res fuo in
   let nu1_res = Nullable.user_of_jsobject_res puo1 in
   let nu2_res = Nullable.user_of_jsobject_res puo2 in
   let nu3_res = Nullable.user_of_jsobject_res puo3 in
+  let goss_res = go_style_struct_of_jsobject_res goss in
   let () = match fu_res with
     | Ok(fu) -> Printf.printf "fuo OK: %s\n" (show_user fu)
     | Error(s) -> Printf.printf "fuo ERR: %s\n" (s)
@@ -106,5 +114,9 @@ let ()=
   let () = match nu3_res with
     | Ok(nu) -> Printf.printf "nu3 OK: %s\n" (Nullable.show_user nu)
     | Error(s) -> Printf.printf "nu3 ERR: %s\n" (s)
+  in
+  let () = match goss_res with
+    | Ok(g) -> Printf.printf "goss OK: %s\n" (show_go_style_struct g)
+    | Error(s) -> Printf.printf "goss ERR: %s\n" s
   in
   ()
