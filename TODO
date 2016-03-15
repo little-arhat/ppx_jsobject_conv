@@ -1,13 +1,10 @@
 
-1) non existing key in jsobject -- valid option value (None):
-    type r = {age: int option; name: string option; smthing: float option} [@@deriving jsobject]
-    #js: {age: 13} -> {age: Some(13); name: None; smthing: None}
-    #js: {age: 32, name:"john appleseed"} -> {age: Some(32); name: Some("john appleseed"); smthing: None}
-    maybe optional? undefined_as_option or null_as_only_option
-2) move Optdef.t handling from generated code to individual funcs?
-3) is_defined: 'a Optdef.t -> ('a, string) Result.t
-4) insert it when needed only
-5) tests
+0) better error reporting!
+1a) improve errors: for records without optional fields,
+    error should be "key not found", not smth like "Not a number"
+1b) strict_option_types -- only convert null as None?
+3) Add is_defined: 'a Optdef.t -> ('a, string) Result.t ??
+5) auto tests
 6) alternative conversions for sum types/variants -- type op = Gte of int | Lte of int  -- {gte: x} or {lte:x}
    maybe we should convert null-ar constructors as just strings? (optionally)
      type sex = Male | Female [@@deriving jsobject]
