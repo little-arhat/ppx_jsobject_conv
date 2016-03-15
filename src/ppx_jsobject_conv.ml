@@ -14,6 +14,20 @@ let wrap_runtime decls =
 let input_evar ~loc= evar ~loc "v"
 let input_pvar ~loc= pvar ~loc "v"
 
+module Attrs = struct
+  let rename =
+    Attribute.declare "jsobject.rename"
+                      Attribute.Context.constructor_declaration
+                      (Ast_pattern.single_expr_payload
+                         (Ast_pattern.estring Ast_pattern.__))
+                      (fun x -> x)
+
+  let constructor_name cd  =
+    match Attribute.get rename cd with
+    | Some(v) -> v
+    | None -> cd.pcd_name.txt
+
+end
 
 (* Courtesy of ppx_sexp_conv *)
 module Fun_or_match = struct
@@ -132,9 +146,8 @@ module Jsobject_of_expander = struct
   let jsobject_of_sum cds =
     let item cd =
       let loc = cd.pcd_loc in
-      let cnstr = cd.pcd_name in
-      let lid = Located.map lident cnstr in
-      let scnstr = estring ~loc cnstr.txt in
+      let lid = Located.map lident cd.pcd_name in
+      let scnstr = estring ~loc (Attrs.constructor_name cd) in
       match cd.pcd_args with
       | [] ->
          ppat_construct ~loc lid None -->
@@ -235,8 +248,9 @@ end
 
 module Jsobject_of = struct
   let str_type_decl =
-    Type_conv.Generator.make_noarg Jsobject_of_expander.str_type_decl
-      ~attributes:[]
+    Type_conv.Generator.make_noarg
+      Jsobject_of_expander.str_type_decl
+      ~attributes:[Attribute.T Attrs.rename]
   ;;
 
   let sig_type_decl =
@@ -372,8 +386,7 @@ module Of_jsobject_expander = struct
   let sum_of_jsobject ~loc type_name cds =
     let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
     let item cd =
-      let cnstr = cd.pcd_name in
-      let pcnstr = pstring ~loc cnstr.txt in
+      let pcnstr = pstring ~loc (Attrs.constructor_name cd) in
       match cd.pcd_args with
       | [] ->
          pcnstr -->
@@ -506,8 +519,9 @@ module Of_jsobject_expander = struct
 
 module Of_jsobject = struct
   let str_type_decl =
-    Type_conv.Generator.make_noarg Of_jsobject_expander.str_type_decl
-      ~attributes:[ ]
+    Type_conv.Generator.make_noarg
+      Of_jsobject_expander.str_type_decl
+      ~attributes:[Attribute.T Attrs.rename]
   ;;
 
   let sig_type_decl =

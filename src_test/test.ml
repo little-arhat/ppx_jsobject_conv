@@ -3,7 +3,9 @@ open Result
 
 type x = int * string * int [@@deriving jsobject]
 type f = Af | Bf of string | Cf of int * string * int [@@deriving jsobject]
-type a = Aa | Ba of string | Ca of x [@@deriving jsobject]
+type a = Gt [@rename "$gt"]
+       | Lt of string [@rename "$lt"]
+       | Eq of x [@rename "$eq"] [@@deriving jsobject]
 type d = D of (int * string) | E of (string * int) [@@deriving jsobject]
 
 
