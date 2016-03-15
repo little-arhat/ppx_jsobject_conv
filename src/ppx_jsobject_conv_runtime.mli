@@ -24,7 +24,7 @@ val is_array_of_size_n :
 
 val array_get_or_error :
   'a #Js.js_array Js.t -> int -> ('a, string) Result.result
-val object_get_or_error :
+val object_get_key :
   'a Js.t -> string -> ('a Js.t, string) Result.result
 
 

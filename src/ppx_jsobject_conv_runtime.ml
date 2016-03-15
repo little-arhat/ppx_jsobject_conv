@@ -39,7 +39,9 @@ let array_fold_right_short_circuit ~f arr ~init =
   with Short_circuit(s) -> Error(s)
 
 let is_object v =
-  result_of_bool (Js.typeof v = (Js.string "object"))
+  let is_object = Js.typeof v = (Js.string "object") in
+  let not_array = not (Js.instanceof v Js.array_empty) in
+  result_of_bool (is_object && not_array)
                  ("Expected object, got: " ^
                     (Js.to_bytestring @@ Js.typeof v))
   >|= (fun _ -> v)
@@ -70,11 +72,10 @@ let array_get_or_error arr ind =
   | Some v -> Ok(v)
   | None -> Error("Expceted value at index: " ^ (string_of_int ind))
 
-let object_get_or_error (obj: 'a Js.t) (key:string) =
-  let maybe_value:('a Js.t) Js.optdef = Js.Unsafe.get obj key in
-  match Js.Optdef.to_option maybe_value with
-  | Some(value) -> Ok(value)
-  | None -> Error("Expected value by key: " ^ key)
+let object_get_key (obj: 'a Js.t) (key:string) =
+  (* let maybe_value:('a Js.t) Js.optdef = Js.Unsafe.get obj key in *)
+  Ok(Js.Unsafe.get obj key)
+  (* maybe_value *)
 
 (* conversion *)
 let int_of_jsobject_res num =
@@ -96,8 +97,11 @@ let string_of_jsobject_res st =
   else Error("not a string")
 
 let option_of_jsobject_res a__of_jsobject_res obj =
-  match Js.Opt.to_option @@ Js.some obj with
-  | Some(v) -> a__of_jsobject_res v >|= (fun i -> Some(i))
+  match Js.Optdef.to_option @@ Js.def obj with
+  | Some(v) -> (match Js.Opt.to_option @@ Js.some v with
+                | Some(v') ->a__of_jsobject_res v' >|= (fun i -> Some(i))
+                | None -> Ok(None)
+               )
   | None -> Ok(None)
 
 let list_of_jsobject_res a__of_jsobject_res obj =

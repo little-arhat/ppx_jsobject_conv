@@ -14,6 +14,7 @@ let wrap_runtime decls =
 let input_evar ~loc= evar ~loc "v"
 let input_pvar ~loc= pvar ~loc "v"
 
+
 (* Courtesy of ppx_sexp_conv *)
 module Fun_or_match = struct
   type t =
@@ -437,7 +438,7 @@ module Of_jsobject_expander = struct
                  ~init: inner_expr
                  ~f:(fun (pvar, ekey, cnv) acc ->
                    [%expr
-                       object_get_or_error [%e eobj] [%e ekey]
+                       object_get_key [%e eobj] [%e ekey]
                        >>= [%e cnv]
                        >>= (fun [%p pvar] ->
                          [%e acc])]
