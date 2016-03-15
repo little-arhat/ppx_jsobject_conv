@@ -93,15 +93,17 @@ module Jsobject_of_expander = struct
       td ~f:(fun ~loc:_ ty ->
         [%type: [%t ty] -> Js.Unsafe.any])
 
-  let name_of_td td = match td.ptype_name.txt with
+  let name_of_tdname name = match name with
     | "t" -> "jsobject_of"
     | tn  -> "jsobject_of_" ^ tn
+
+  let name_of_td td = name_of_tdname td.ptype_name.txt
 
   let jsobject_of_std_type (id : Longident.t Located.t) =
     let txt : Longident.t =
       match id.txt with
-      | Longident.Lident   s  -> Longident.Lident  ("jsobject_of_" ^ s)
-      | Longident.Ldot (p, s) -> Longident.Ldot (p, "jsobject_of_" ^ s)
+      | Longident.Lident   s  -> Longident.Lident  (name_of_tdname s)
+      | Longident.Ldot (p, s) -> Longident.Ldot (p, name_of_tdname s)
       | Longident.Lapply _    -> failwith "ppx_jsobject_conv: jsobject_std_type"
     in
     pexp_ident ~loc:id.loc { id with txt }
@@ -286,10 +288,6 @@ module Of_jsobject_expander = struct
       td ~f:(fun ~loc:_ ty ->
         [%type: Js.Unsafe.any -> ([%t ty], string) Result.t ])
 
-  let name_of_td td = match td.ptype_name.txt with
-    | "t" -> "of_jsobject_res"
-    | tn  -> tn ^ "_of_jsobject_res"
-
   let eok ~loc v = pexp_construct
                      ~loc (Located.lident ~loc "Result.Ok") (Some v)
   let err_simple ~loc s = pexp_construct
@@ -300,11 +298,17 @@ module Of_jsobject_expander = struct
     let full = [%expr [%e base] ^ [%e var]] in
     pexp_construct ~loc (Located.lident ~loc "Result.Error") (Some full)
 
+  let name_of_tdname name = match name with
+    | "t" -> "of_jsobject_res"
+    | tn  -> tn ^ "_of_jsobject_res"
+
+  let name_of_td td = name_of_tdname td.ptype_name.txt
+
   let std_type_of_jsobject_res (id : Longident.t Located.t) =
     let txt : Longident.t =
       match id.txt with
-      | Longident.Lident   s  -> Longident.Lident  (s ^ "_of_jsobject_res")
-      | Longident.Ldot (p, s) -> Longident.Ldot (p, s ^ "_of_jsobject_res")
+      | Longident.Lident   s  -> Longident.Lident  (name_of_tdname s)
+      | Longident.Ldot (p, s) -> Longident.Ldot (p, name_of_tdname s)
       | Longident.Lapply _    -> failwith "ppx_jsobject_conv: type_id_of_jsobject"
     in
     pexp_ident ~loc:id.loc { id with txt }
