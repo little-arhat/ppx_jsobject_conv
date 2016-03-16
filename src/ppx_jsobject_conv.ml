@@ -308,12 +308,12 @@ module Of_jsobject_expander = struct
     pexp_construct ~loc (Located.lident ~loc "Result.Error") (Some full)
 
   let name_of_tdname name = match name with
-    | "t" -> "of_jsobject_res"
-    | tn  -> tn ^ "_of_jsobject_res"
+    | "t" -> "of_jsobject"
+    | tn  -> tn ^ "_of_jsobject"
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
 
-  let std_type_of_jsobject_res id =
+  let std_type_of_jsobject id =
     let txt =
       match id.txt with
       | Longident.Lident   s  -> Longident.Lident  (name_of_tdname s)
@@ -326,7 +326,7 @@ module Of_jsobject_expander = struct
     let loc = typ.ptyp_loc in
     match typ.ptyp_desc with
     | Ptyp_constr (id, args) ->
-       let init = std_type_of_jsobject_res id in
+       let init = std_type_of_jsobject id in
        let args = List.map args
                           ~f:(fun arg ->
                             Fun_or_match.expr ~loc
@@ -414,7 +414,7 @@ module Of_jsobject_expander = struct
                            is_array pv >>=
                              (fun [%p parr] ->
                                array_get_ind [%e earr] 0
-                               >>= string_of_jsobject_res
+                               >>= string_of_jsobject
                                >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
 
@@ -467,7 +467,7 @@ module Of_jsobject_expander = struct
                            is_array [%e input_evar ~loc] >>=
                              (fun [%p parr] ->
                                array_get_ind [%e earr] 0
-                               >>= string_of_jsobject_res
+                               >>= string_of_jsobject
                                >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
 

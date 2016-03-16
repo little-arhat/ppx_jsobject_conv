@@ -136,19 +136,34 @@ let ()=
              }
            ]}
                        |sm} in
+  let command_json2 = {sm|
+{"message": [
+             "Basket",
+             {
+                 "name": "basket",
+                 "query": {
+                     "amount": 66.6,
+                     "condition": [
+                         "Gt", 30
+                     ]
+                 }
+             }
+           ]}
+                       |sm} in
   let basket_json = {|
 {"name": "name", "query": {"amount": "no", "condition": ["Lt", 1]}}
                      |} in
-  run_test "full_user" full_user user_of_jsobject_res show_user;
+  run_test "full_user" full_user user_of_jsobject show_user;
   run_test "partial1" partial_user1
-           Nullable.user_of_jsobject_res Nullable.show_user;
+           Nullable.user_of_jsobject Nullable.show_user;
   run_test "partial2" partial_user2
-           Nullable.user_of_jsobject_res Nullable.show_user;
+           Nullable.user_of_jsobject Nullable.show_user;
   run_test "partial3" partial_user3
-           Nullable.user_of_jsobject_res Nullable.show_user;
+           Nullable.user_of_jsobject Nullable.show_user;
   run_test "faulty" faulty_full_user
-           user_of_jsobject_res show_user;
+           user_of_jsobject show_user;
   run_test "go_style" go_style_struct
-           go_style_struct_of_jsobject_res show_go_style_struct;
-  run_test "command1" command_json1 command_of_jsobject_res show_command;
-  run_test "basket1" basket_json basket_of_jsobject_res show_basket
+           go_style_struct_of_jsobject show_go_style_struct;
+  run_test "command1" command_json1 command_of_jsobject show_command;
+  run_test "command2" command_json2 command_of_jsobject show_command;
+  run_test "basket1" basket_json basket_of_jsobject show_basket

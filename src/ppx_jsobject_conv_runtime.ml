@@ -84,7 +84,7 @@ let object_get_key (obj: 'a Js.t) (key:string) =
   Ok(Js.Unsafe.get obj key)
 
 (* conversion *)
-let int_of_jsobject_res obj =
+let int_of_jsobject obj =
   if Js.typeof obj = (Js.string "number")
   then Ok(int_of_float @@
             (* TODO: check for "int-nesses" *)
@@ -92,39 +92,39 @@ let int_of_jsobject_res obj =
               Js.Unsafe.coerce obj)
   else type_error obj "number"
 
-let float_of_jsobject_res obj =
+let float_of_jsobject obj =
   if Js.typeof obj = (Js.string "number")
   then Ok(Js.float_of_number @@
             Js.Unsafe.coerce obj)
   else type_error obj "number"
 
-let string_of_jsobject_res obj =
+let string_of_jsobject obj =
   if Js.typeof obj = (Js.string "string")
   then Ok(Js.to_string (Js.Unsafe.coerce obj))
   else type_error obj "string"
 
-let option_of_jsobject_res a__of_jsobject_res obj =
+let option_of_jsobject a__of_jsobject obj =
   match Js.Optdef.to_option @@ Js.def obj with
   | Some(v) -> (match Js.Opt.to_option @@ Js.some v with
-                | Some(v') ->a__of_jsobject_res v' >|= (fun i -> Some(i))
+                | Some(v') ->a__of_jsobject v' >|= (fun i -> Some(i))
                 | None -> Ok(None)
                )
   | None -> Ok(None)
 
-let list_of_jsobject_res a__of_jsobject_res obj =
+let list_of_jsobject a__of_jsobject obj =
   is_array obj >>=
     (fun arr ->
       let oarr = Js.to_array arr in
       array_fold_right_short_circuit
         ~f:(fun jsel l ->
-          a__of_jsobject_res jsel
+          a__of_jsobject jsel
           >|= (fun oel -> oel::l))
         ~init:[]
         oarr
       >|= (fun l -> List.rev l))
 
-let array_of_jsobject_res a__of_jsobject_res obj =
-  list_of_jsobject_res a__of_jsobject_res obj >|= Array.of_list
+let array_of_jsobject a__of_jsobject obj =
+  list_of_jsobject a__of_jsobject obj >|= Array.of_list
 
 
 (* jsobject_of *)

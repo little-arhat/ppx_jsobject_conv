@@ -34,15 +34,15 @@ val object_get_key :
 
 (* std convs *)
 
-val int_of_jsobject_res : 'a Js.t -> (int, string) Result.result
-val float_of_jsobject_res : 'a Js.t -> (float, string) Result.result
-val string_of_jsobject_res : 'a Js.t -> (string, string) Result.result
-val option_of_jsobject_res :
+val int_of_jsobject : 'a Js.t -> (int, string) Result.result
+val float_of_jsobject : 'a Js.t -> (float, string) Result.result
+val string_of_jsobject : 'a Js.t -> (string, string) Result.result
+val option_of_jsobject :
   ('a -> ('b, 'c) Result.result) -> 'a -> ('b option, 'c) Result.result
-val list_of_jsobject_res :
+val list_of_jsobject :
   ('a Js.t -> ('b, string) Result.result) ->
   'c Js.t -> ('b list, string) Result.result
-val array_of_jsobject_res :
+val array_of_jsobject :
   ('a Js.t -> ('b, string) Result.result) ->
   'c Js.t -> ('b array, string) Result.result
 
