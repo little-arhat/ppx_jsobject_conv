@@ -1,7 +1,4 @@
 
-0) better error reporting!
-1a) improve errors: for records without optional fields,
-    error should be "key not found", not smth like "Not a number"
 1b) strict_option_types -- only convert null as None?
 3) Add is_defined: 'a Optdef.t -> ('a, string) Result.t ??
 5) auto tests
@@ -16,6 +13,7 @@
         where wrapper will convert types;
 
 10) defaults -- implement by this lib or leave it to logic?
+    (can be hard if there is no optional types in record)
     not to hard to implement for basic types: add ?default arg and pass it in codegen
     not sure about complex types, where should typechecking be implemented?
 
