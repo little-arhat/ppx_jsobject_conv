@@ -1,23 +1,27 @@
-
-# ppx_jsobject_conv
-
-*Work in progress!*
+# Ppx_jsobject_conv
 
 Ppx plugin for `Typeconv` to derive conversion from ocaml types to js objects to use with `js_of_ocaml`.
 
-*Will be published to opam soon*
+For types annotated with `[@@deriving jsobject]`, plugin will generate pair of functions: `*_of_jsobject/jsobject_of_*`
+to convert from/to JavaScript objects. This allows one to use clean OCaml types to describe their logic, while having ability
+to easy go down to js types. Easy conversion from js objects to OCaml types means also, one can use fast native `JSON.parse` to
+convert JSON to OCaml types.
+
+MIT License.
 
 ## Example usage
 
-See [expample of exported ocaml module](https://github.com/little-arhat/exported-ocaml-js) for more info.
+See [expample of exported ocaml module](https://github.com/little-arhat/exported-ocaml-js) or `src_test` for more info.
 
-Short guide:
+### Short guide
 
 ```ocaml
 
-type stuff = int * string * float [@@deriving jsobject]
+module Stuff = struct
+  type t = int * string * float [@@deriving jsobject]
+end
 
-type status = Created | Registered of int | Deleted of stuff [@@deriving jsobject]
+type status = Created | Registered of int | Deleted of Stuff.t [@@deriving jsobject]
 
 type user = {
     name: string;
@@ -27,9 +31,28 @@ type user = {
 
 ```
 
-This will generate functions `jsobject_of_stuff`, `jsobject_of_status`, `jsobject_of_user`. Conversions from jsobjects to OCaml values will be added later.
+This will generate functions `Stuff.of_jsobject/Stuff.jsobject_of`, `statls_of_jsobject/jsobject_of_status`, `user_of_jsobject/jsobject_of_user`.
 
-### Adding ppx_jsobject_conv to your project
+### More details
+
+Given `type t = ... [@@deriving jsobject]`, signatures for functions will be:
+
+```ocaml
+val jsobject_of : t -> 'a Js.t
+val of_jsobject : 'a Js.t -> (t, string) Result.result
+```
+
+One can derive only one function from the pair using `[@@deriving jsobject_of]` or `[@@deriving of_jsobject]`, and define complementary function manually,
+following signatures above.
+
+For types named `t` generated functions have names without any prefixes, otherwise `<typename_of_jsobject/jsobject_of_<typename>` used.
+
+### Error reporting
+
+If conversion from JS type to OCaml was unsuccessful, `Error` constructor of `Result.result` type will be returned with the description of error.
+If error happened somewhere deep in the structure, error description will have prefix with path to errorneus field: `message.1.query.condition.0`.
+
+## Adding ppx_jsobject_conv to your project
 
 Easiest way to use `[@@deriving jsobject]` is to link againts `ppx_jsobject_conv` (`ppx_jsobject_conv`
 in `BuildDepents` for `_oasis` or `package(ppx_jsobject_conv)` in `_tags` if you use `ocamlbuild` directly). This will add all necessary dependencies
