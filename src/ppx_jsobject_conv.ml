@@ -283,6 +283,15 @@ module Jsobject_of = struct
 end
 
 module Of_jsobject_expander = struct
+  (* Helpers for creating good error messages *)
+  let mk_index ~loc i =
+    let ei = eint ~loc i in
+    let es = estring ~loc @@ string_of_int i in
+    (ei, es)
+
+  let mk_err_expander path_comp =
+    [%expr (fun emsg -> concat_error_messages [%e path_comp] emsg)]
+
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
@@ -343,10 +352,11 @@ module Of_jsobject_expander = struct
     let body = List.fold_right2
                  ~init: inner_expr
                  ~f:(fun pvar (i, fp) acc ->
-                   let ei = eint ~loc i in
+                   let ei, es = mk_index ~loc i in
                    [%expr
-                       array_get_or_error [%e earr] [%e ei]
+                       array_get_ind [%e earr] [%e ei]
                        >>= [%e fp]
+                       >*= [%e mk_err_expander es]
                        >>= (fun [%p pvar ] ->
                                 [%e acc])])
                  pvars iefps
@@ -366,8 +376,9 @@ module Of_jsobject_expander = struct
       (* p. variant constructor w/o arguments*)
       | Rtag (cnstr, _, true , []) ->
          let ecnstr = Ast_helper.Exp.variant ~loc cnstr None in
-         pstring ~loc cnstr -->
-           [%expr [%e eok ~loc ecnstr]]
+         (pstring ~loc cnstr -->
+            [%expr [%e eok ~loc ecnstr]],
+          cnstr)
       (* p. variant constructor w argument *)
       | Rtag (cnstr, _, false, [tp]) ->
          let ev, pv = evar ~loc "v0", pvar ~loc "v0" in
@@ -375,28 +386,34 @@ module Of_jsobject_expander = struct
            Fun_or_match.expr ~loc
                              (type_of_jsobject tp) in
          let ecnstr = Ast_helper.Exp.variant ~loc cnstr (Some ev) in
-         pstring ~loc cnstr -->
-           [%expr
-               array_get_or_error [%e earr] 1
-               >>= [%e cnstr_fun]
-               >>= (fun [%p pv] ->
-                    [%e eok ~loc ecnstr]
-               )]
+         (* TODO: multi arg variants constructor? check docs! *)
+         let ei, es = mk_index ~loc 1 in
+         let exp = pstring ~loc cnstr -->
+                     [%expr
+                         array_get_ind [%e earr] [%e ei]
+                      >>= [%e cnstr_fun]
+                      >*= [%e mk_err_expander es]
+                      >>= (fun [%p pv] ->
+                        [%e eok ~loc ecnstr]
+                     )] in
+         (exp, cnstr)
       | Rtag(_) | Rinherit(_) ->
          Location.raise_errorf "ppx_jsobject_conv: unsupported variant_of_jsobject"
     in
-    let matches = List.map ~f:item row_fields in
-    let empty_match = [pvar ~loc "unknown" -->
-                         err_var ~loc
-                                 ("Unknown constructor for type " ^ type_name ^ " : ")
-                                 (evar ~loc "unknown")] in
+    let matches, varnames = List.split @@ List.map ~f:item row_fields in
+    let unknown_match =
+      let allowed = String.concat ~sep:"/" varnames in
+      let msg = Printf.sprintf "0: expected one of the %s, got " allowed in
+      [pvar ~loc "unknown" -->
+         err_var ~loc msg (evar ~loc "unknown")]
+    in
     let match_expr = Fun_or_match.expr ~loc @@
-                 Fun_or_match.Match (matches @ empty_match) in
+                 Fun_or_match.Match (matches @ unknown_match) in
     let outer_expr = [%expr
                          (fun pv ->
                            is_array pv >>=
                              (fun [%p parr] ->
-                               array_get_or_error [%e earr] 0
+                               array_get_ind [%e earr] 0
                                >>= string_of_jsobject_res
                                >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
@@ -404,11 +421,13 @@ module Of_jsobject_expander = struct
   let sum_of_jsobject ~loc cds =
     let earr, parr = evar ~loc "arr", pvar ~loc "arr" in
     let item cd =
-      let pcnstr = pstring ~loc (Attrs.constructor_name cd) in
+      let cname = (Attrs.constructor_name cd) in
+      let pcnstr = pstring ~loc cname in
       match cd.pcd_args with
       | [] ->
-         pcnstr -->
-           [%expr [%e eok ~loc (econstruct cd None)]]
+         (pcnstr -->
+            [%expr [%e eok ~loc (econstruct cd None)]],
+          cname)
       | args ->
          let fargs = List.map ~f:type_of_jsobject args in
          let efargs = List.map ~f:(Fun_or_match.expr ~loc) fargs in
@@ -424,28 +443,30 @@ module Of_jsobject_expander = struct
          let body = List.fold_right2
                       ~init: inner_expr
                       ~f:(fun pvar (i, fa) acc ->
-                        let ei = eint ~loc i in
+                        let ei, es = mk_index ~loc i in
                         [%expr
-                            array_get_or_error [%e earr] [%e ei]
+                            array_get_ind [%e earr] [%e ei]
                          >>= [%e fa]
+                         >*= [%e mk_err_expander es]
                          >>= (fun [%p pvar ] ->
                            [%e acc])])
                       pvars iefargs
          in
-         pcnstr --> body
+         (pcnstr --> body, cname)
     in
-    let matches = List.map ~f:item cds in
-    let empty_match = [pvar ~loc "unknown" -->
-                         err_var ~loc
-                                 ("Unknown constructor for type " ^ type_name ^ " : ")
-                                 (evar ~loc "unknown")] in
+    let matches, cnames = List.split @@ List.map ~f:item cds in
+    let unknown_match =
+      let allowed = String.concat ~sep:"/" cnames in
+      let msg = Printf.sprintf "0: expected one of the %s, got " allowed in
+      [pvar ~loc "unknown" -->
+         err_var ~loc msg (evar ~loc "unknown")] in
     let match_expr  = Fun_or_match.expr ~loc @@
-                        Fun_or_match.Match (matches @ empty_match) in
+                        Fun_or_match.Match (matches @ unknown_match) in
     let outer_expr = [%expr
                          (fun s ->
                            is_array [%e input_evar ~loc] >>=
                              (fun [%p parr] ->
-                               array_get_or_error [%e earr] 0
+                               array_get_ind [%e earr] 0
                                >>= string_of_jsobject_res
                                >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
@@ -470,6 +491,7 @@ module Of_jsobject_expander = struct
                    [%expr
                        object_get_key [%e eobj] [%e field_name]
                        >>= [%e cnv]
+                       >*= [%e mk_err_expander field_name]
                        >>= (fun [%p pvar] ->
                          [%e acc])]
                  ) pfc

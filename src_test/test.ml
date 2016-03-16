@@ -58,6 +58,29 @@ module Nullable = struct
 
 type outside = Something of Nullable.user [@@deriving jsobject]
 
+type condition = Gt of int | Lt of int [@@deriving jsobject]
+let show_condition = function
+  | Gt(i) -> Printf.sprintf "Gt(%d)" i
+  | Lt(i) -> Printf.sprintf "Lt(%d)" i
+
+type query = {amount: float; condition: condition} [@@deriving jsobject]
+let show_query = function
+  | {amount;condition} -> Printf.sprintf "{amount=%f;condition=%s}"
+                                         amount (show_condition condition)
+
+type basket = {name: string; query: query} [@@deriving jsobject]
+let show_basket = function
+  | {name;query} -> Printf.sprintf "{name=%s;query=%s}" name (show_query query)
+
+type message = Basket of basket | Nop [@@deriving jsobject]
+let show_message = function
+  | Basket(b) -> Printf.sprintf "Basket(%s)" (show_basket b)
+  | Nop -> "Nop"
+
+type command = {message: message} [@@deriving jsobject]
+let show_command = function
+  | {message} -> Printf.sprintf "{message=%s}" (show_message message)
+
 module M = struct
   type t = int [@@deriving jsobject]
 end
@@ -93,13 +116,29 @@ let run_test name inp conv_func show_func =
      Printf.printf "ERR [%s]: %s --> %s\n" name inp msg
 
 let ()=
-  let open Result in
   let full_user = "{\"age\": 18, \"name\":\"Varya\", \"status\":[\"Created\"]}" in
   let partial_user1 = "{}" in
   let partial_user2 = "{\"age\": 24}" in
   let partial_user3 = "{\"age\": 12, \"name\":\"vasya\"}" in
   let faulty_full_user = "{\"age\": 18, \"status\":[\"Created\"]}" in
   let go_style_struct = "{\"FieldName\": \"some field name\"}" in
+  let command_json1 = {sm|
+{"message": [
+             "Basket",
+             {
+                 "name": "basket",
+                 "query": {
+                     "amount": 66.6,
+                     "condition": [
+                         "Eq", 30
+                     ]
+                 }
+             }
+           ]}
+                       |sm} in
+  let basket_json = {|
+{"name": "name", "query": {"amount": "no", "condition": ["Lt", 1]}}
+                     |} in
   run_test "full_user" full_user user_of_jsobject_res show_user;
   run_test "partial1" partial_user1
            Nullable.user_of_jsobject_res Nullable.show_user;
@@ -111,3 +150,5 @@ let ()=
            user_of_jsobject_res show_user;
   run_test "go_style" go_style_struct
            go_style_struct_of_jsobject_res show_go_style_struct;
+  run_test "command1" command_json1 command_of_jsobject_res show_command;
+  run_test "basket1" basket_json basket_of_jsobject_res show_basket

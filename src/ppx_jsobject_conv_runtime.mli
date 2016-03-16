@@ -12,6 +12,10 @@ val (>|=) : ('a, 'b) Result.result -> ('a -> 'c) -> ('c, 'b) Result.result
 val (>>=) : ('a, 'b) Result.result ->
             ('a -> ('c, 'b) Result.result) -> ('c, 'b) Result.result
 
+val (>*=) : ('a, 'b) Result.result -> ('b -> 'c) -> ('a, 'c) Result.result
+
+val concat_error_messages : string -> string -> string
+
 (** of_jsobject *)
 (* utilities *)
 
@@ -22,7 +26,7 @@ val is_array : 'b Js.t -> ('a Js.t #Js.js_array Js.t, string) Result.result
 val is_array_of_size_n :
   'a Js.t -> int -> ('b Js.t #Js.js_array Js.t, string) Result.result
 
-val array_get_or_error :
+val array_get_ind :
   'a #Js.js_array Js.t -> int -> ('a, string) Result.result
 val object_get_key :
   'a Js.t -> string -> ('a Js.t, string) Result.result

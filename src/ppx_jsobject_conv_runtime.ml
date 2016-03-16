@@ -1,12 +1,8 @@
 
 open StdLabels
 
-(* module Js = Js *)
-(* module Result = Result *)
 include Js
 include Result
-
-(* open Result *)
 
 
 let map f e = match e with
@@ -17,11 +13,24 @@ let flat_map f e = match e with
   | Ok x -> f x
   | Error s -> Result.Error s
 
-let (>|=) e f = map f e
+let map_err f e = match e with
+  | Ok _ as res -> res
+  | Error y -> Error (f y)
 
+let (>|=) e f = map f e
 let (>>=) e f = flat_map f e
+let (>*=) e f = map_err f e
 
 let result_of_bool v er = if v then Ok(v) else Error(er)
+
+let string_typeof v = Js.to_bytestring @@ Js.typeof v
+let type_error v expected =
+  Result.Error(Printf.sprintf "expected %s, got %s"
+                              expected  (string_typeof v))
+let concat_error_messages path msg =
+  if String.contains msg ':'
+  then path ^ "." ^ msg
+  else path ^ ": " ^ msg
 
 (* of_jsobject *)
 (* heplers *)
@@ -41,15 +50,14 @@ let array_fold_right_short_circuit ~f arr ~init =
 let is_object v =
   let is_object = Js.typeof v = (Js.string "object") in
   let not_array = not (Js.instanceof v Js.array_empty) in
-  result_of_bool (is_object && not_array)
-                 ("Expected object, got: " ^
-                    (Js.to_bytestring @@ Js.typeof v))
+  let arg = if not not_array then "array" else (string_typeof v) in
+  let msg = Printf.sprintf "expected object, got %s" arg in
+  result_of_bool (is_object && not_array) msg
   >|= (fun _ -> v)
 
 let is_array v  =
-  result_of_bool (Js.instanceof v Js.array_empty)
-                 ("Expected array, got: " ^
-                    (Js.to_bytestring @@ Js.typeof v))
+  let msg = Printf.sprintf "expected array, got %s" (string_typeof v) in
+  result_of_bool (Js.instanceof v Js.array_empty) msg
   >|= (fun _ ->
     let arr:'a Js.t #Js.js_array Js.t = Js.Unsafe.coerce v
     in arr)
@@ -63,38 +71,37 @@ let is_array_of_size_n obj expected =
       let got = array_length_f arr in
       result_of_bool (expected = got)
                      (Printf.sprintf
-                        "Expected array of length %d, got: %d"
+                        "expected array of length %d, got %d"
                         expected got)
       >|= (fun _ -> arr))
 
-let array_get_or_error arr ind =
+let array_get_ind arr ind =
   match Js.Optdef.to_option @@ Js.array_get arr ind with
   | Some v -> Ok(v)
-  | None -> Error("Expceted value at index: " ^ (string_of_int ind))
+  | None -> Ok(Js.Unsafe.eval_string("undefined"))
 
 let object_get_key (obj: 'a Js.t) (key:string) =
-  (* let maybe_value:('a Js.t) Js.optdef = Js.Unsafe.get obj key in *)
   Ok(Js.Unsafe.get obj key)
-  (* maybe_value *)
 
 (* conversion *)
-let int_of_jsobject_res num =
-  if Js.typeof num = (Js.string "number")
+let int_of_jsobject_res obj =
+  if Js.typeof obj = (Js.string "number")
   then Ok(int_of_float @@
+            (* TODO: check for "int-nesses" *)
             Js.float_of_number @@
-              Js.Unsafe.coerce num)
-  else Error("not a number")
+              Js.Unsafe.coerce obj)
+  else type_error obj "number"
 
-let float_of_jsobject_res num =
-  if Js.typeof num = (Js.string "number")
+let float_of_jsobject_res obj =
+  if Js.typeof obj = (Js.string "number")
   then Ok(Js.float_of_number @@
-            Js.Unsafe.coerce num)
-  else Error("not a number")
+            Js.Unsafe.coerce obj)
+  else type_error obj "number"
 
-let string_of_jsobject_res st =
-  if Js.typeof st = (Js.string "string")
-  then Ok(Js.to_string (Js.Unsafe.coerce st))
-  else Error("not a string")
+let string_of_jsobject_res obj =
+  if Js.typeof obj = (Js.string "string")
+  then Ok(Js.to_string (Js.Unsafe.coerce obj))
+  else type_error obj "string"
 
 let option_of_jsobject_res a__of_jsobject_res obj =
   match Js.Optdef.to_option @@ Js.def obj with
