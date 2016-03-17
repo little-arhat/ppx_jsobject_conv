@@ -17,7 +17,7 @@ build: [
 depends: [
   "js_of_ocaml"
   "result"
-  "ppx_type_conv"
+  "ppx_type_conv" {>= "113.24.00"}
   "ppx_driver"
   "ppx_core"
   "ocamlfind"    {build}
