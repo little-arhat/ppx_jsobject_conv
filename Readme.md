@@ -9,6 +9,10 @@ convert JSON to OCaml types.
 
 MIT License.
 
+## Installation
+
+`opam install ppx_jsobject_conv=0.0.1`
+
 ## Example usage
 
 See [expample of exported ocaml module](https://github.com/little-arhat/exported-ocaml-js) or `src_test` for more info.
