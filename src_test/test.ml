@@ -106,6 +106,22 @@ let show_user = function
 (* fix this *)
 module Pjcr = Ppx_jsobject_conv_runtime
 
+module Email = struct
+  type t = string [@@deriving jsobject]
+  let of_jsobject o =
+    let open! Ppx_jsobject_conv_runtime in
+    of_jsobject o
+    >>= (fun s ->
+      if String.contains s '@'
+      then Ok(s)
+      else Error("expected email, got random string"))
+  let show e = e
+end
+type email_info = {
+    email: Email.t
+  } [@@deriving jsobject]
+let show_email_info ei = Printf.sprintf "{email=%s}" (Email.show ei.email)
+
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
   let parsed = JSON.parse inp in
@@ -166,4 +182,6 @@ let ()=
            go_style_struct_of_jsobject show_go_style_struct;
   run_test "command1" command_json1 command_of_jsobject show_command;
   run_test "command2" command_json2 command_of_jsobject show_command;
-  run_test "basket1" basket_json basket_of_jsobject show_basket
+  run_test "basket1" basket_json basket_of_jsobject show_basket;
+  run_test "email1" "{\"email\":\"some@example.org\"}" email_info_of_jsobject show_email_info;
+  run_test "email2" "{\"email\":\"someexample.org\"}" email_info_of_jsobject show_email_info;
