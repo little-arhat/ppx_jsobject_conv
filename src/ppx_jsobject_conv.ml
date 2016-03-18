@@ -117,12 +117,13 @@ module Jsobject_of_expander = struct
               args
               ~init
               ~f:(fun tp2 exp1  ->
-                let exp2 = Fun_or_match.expr ~loc (jsobject_of_type tp2) in
+                let exp2 = Fun_or_match.expr
+                             ~loc (jsobject_of_type tp2) in
                 [%expr [%e exp1] [%e exp2]]))
     | Ptyp_tuple tps ->
-       Fun_or_match.Match [jsobject_of_tuple (loc, tps)]
+       Fun_or_match.Match [jsobject_of_tuple ~loc tps]
     | Ptyp_variant (row_fields, _, _) ->
-       jsobject_of_variant (loc, row_fields)
+       jsobject_of_variant  ~loc row_fields
     | Ptyp_object(_) | Ptyp_class(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- classes & objects are not supported yet"
     | Ptyp_package(_) ->
@@ -131,7 +132,7 @@ module Jsobject_of_expander = struct
       | Ptyp_poly(_) | Ptyp_extension(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- Unsupported type"
   (* Conversion of tuples *)
-  and jsobject_of_tuple (loc, tps) =
+  and jsobject_of_tuple ~loc tps =
     let fps = List.map ~f:jsobject_of_type tps in
     let bindings, pvars, evars = Fun_or_match.map_tmp_vars ~loc fps in
     let in_expr = [%expr
@@ -139,17 +140,24 @@ module Jsobject_of_expander = struct
                       [%e elist ~loc evars] ] in
     let expr = pexp_let ~loc Nonrecursive bindings in_expr in
     ppat_tuple ~loc pvars --> expr
+
   (* Conversion of variant types *)
-  and jsobject_of_variant (loc, row_fields) =
+  and jsobject_of_variant ~loc row_fields =
+    let make_final_expr cnstr args  =
+      let ecnstr = estring ~loc cnstr in
+      let cnstr_expr = [%expr jsobject_of_string [%e ecnstr]] in
+      let full = elist ~loc (cnstr_expr::args) in
+      [%expr to_js_array [%e full]]
+    in
     let item = function
       | Rtag (cnstr, _, true, []) ->
          ppat_variant ~loc cnstr None -->
-           [%expr to_js_array [(jsobject_of_string [%e estring ~loc cnstr])]]
+           (make_final_expr cnstr [] )
       | Rtag (cnstr, _, false, [tp]) ->
-        let cnstr_expr = [%expr jsobject_of_string [%e estring ~loc cnstr] ] in
         let var, patt = evar ~loc "v0", pvar ~loc "v0" in
-        let cnstr_arg = Fun_or_match.unroll ~loc var (jsobject_of_type tp) in
-        let expr = [%expr to_js_array [%e elist ~loc [cnstr_expr; cnstr_arg]]] in
+        let cnstr_arg = Fun_or_match.unroll
+                          ~loc var (jsobject_of_type tp) in
+        let expr = make_final_expr cnstr [cnstr_arg] in
         ppat_variant ~loc cnstr (Some patt) --> expr
       | Rtag (_) | Rinherit(_) ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: unsupported jsobject_of_variant"
@@ -213,7 +221,6 @@ module Jsobject_of_expander = struct
 
   let jsobject_of_td td =
     let tps = List.map td.ptype_params ~f:(fun tp -> (get_type_param_name tp).txt) in
-    (* TODO: pass type_name further to display nice errors *)
     let {ptype_name = {txt = _type_name; loc = _}; ptype_loc = loc; _} = td in
     let body =
       match td.ptype_kind with
@@ -386,7 +393,6 @@ module Of_jsobject_expander = struct
            Fun_or_match.expr ~loc
                              (type_of_jsobject tp) in
          let ecnstr = Ast_helper.Exp.variant ~loc cnstr (Some ev) in
-         (* TODO: multi arg variants constructor? check docs! *)
          let ei, es = mk_index ~loc 1 in
          let exp = pstring ~loc cnstr -->
                      [%expr
@@ -473,9 +479,8 @@ module Of_jsobject_expander = struct
 
   let mk_rec_details = function
     | {pld_name = {txt=name; loc}; pld_type = tp; _ } as ld ->
-       let vname = evar ~loc ("v_" ^ name) in
+       let vname, pname = evar ~loc ("v_" ^ name), pvar ~loc ("v_" ^ name) in
        let field_name = estring ~loc (Attrs.field_name ld) in
-       let pname = pvar ~loc ("v_" ^ name) in
        let cnv = Fun_or_match.expr ~loc (type_of_jsobject tp) in
        let lid = Located.lident ~loc name in
        ((lid, vname), (pname, field_name, cnv))
@@ -487,18 +492,18 @@ module Of_jsobject_expander = struct
     let eobj, pobj = evar ~loc "obj", pvar ~loc "obj" in
     let body = List.fold_right
                  ~init: inner_expr
-                 ~f:(fun (pvar, field_name, cnv) acc ->
+                 ~f:(fun (pv, field_name, cnv) acc ->
                    [%expr
                        object_get_key [%e eobj] [%e field_name]
                        >>= [%e cnv]
                        >*= [%e mk_err_expander field_name]
-                       >>= (fun [%p pvar] ->
+                       >>= (fun [%p pv] ->
                          [%e acc])]
                  ) pfc
     in
     let outer_expr = [%expr
                          (fun r ->
-                           is_object [%e input_evar ~loc] >>=
+                           is_object r >>=
                              (fun [%p pobj] ->
                                [%e body]))] in
     Fun_or_match.Fun outer_expr

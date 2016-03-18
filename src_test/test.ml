@@ -19,7 +19,7 @@ type maybe_int = int option [@@deriving jsobject]
 type arr_float = float array [@@deriving jsobject]
 type string_list = string list [@@deriving jsobject]
 
-type status = [`Created | `Registered of int | `Deleted of int] [@@deriving jsobject]
+type status = [`Created | `Registered of int * string | `Deleted of int] [@@deriving jsobject]
 
 type user = {
     age: int;
@@ -29,7 +29,7 @@ type user = {
 
 let show_status = function
   | `Created -> "`Created"
-  | `Registered(i) -> Printf.sprintf "`Registered(%d)" i
+  | `Registered(i, s) -> Printf.sprintf "`Registered(%d,%s)" i s
   | `Deleted(i) -> Printf.sprintf "`Deleted(%d)" i
 
 module Nullable = struct
