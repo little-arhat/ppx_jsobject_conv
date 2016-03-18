@@ -83,6 +83,11 @@ let array_get_ind arr ind =
 let object_get_key (obj: 'a Js.t) (key:string) =
   Ok(Js.Unsafe.get obj key)
 
+let defined_or_error obj =
+  match Js.Optdef.to_option @@ Js.def obj with
+  | Some(o) -> Ok(o)
+  | None -> Result.Error("expected value, got undefined")
+
 (* conversion *)
 let int_of_jsobject obj =
   if Js.typeof obj = (Js.string "number")

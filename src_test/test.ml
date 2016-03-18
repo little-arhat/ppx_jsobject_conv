@@ -122,6 +122,13 @@ type email_info = {
   } [@@deriving jsobject]
 let show_email_info ei = Printf.sprintf "{email=%s}" (Email.show ei.email)
 
+type new_query = Gtn of int [@name "$gt"] [@jsobject.as_object]
+               | Ltn of int [@name "$lt"]  [@@deriving jsobject]
+let show_new_query = function
+  | Gtn(i) -> Printf.sprintf "Gtn(%d)" i
+  | Ltn(i) -> Printf.sprintf "Ltn(%d)" i
+
+
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
   let parsed = JSON.parse inp in
@@ -185,3 +192,8 @@ let ()=
   run_test "basket1" basket_json basket_of_jsobject show_basket;
   run_test "email1" "{\"email\":\"some@example.org\"}" email_info_of_jsobject show_email_info;
   run_test "email2" "{\"email\":\"someexample.org\"}" email_info_of_jsobject show_email_info;
+  run_test "new query0 " "{\"$lt\":0}" new_query_of_jsobject show_new_query;
+  run_test "new query1 " "{\"$gt\":12}" new_query_of_jsobject show_new_query;
+  run_test "new query2 " "{\"garbage\":12}" new_query_of_jsobject show_new_query;
+  run_test "new query3 " "{\"$gt\":\"checki\"}" new_query_of_jsobject show_new_query;
+  Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_new_query (Gtn 242));
