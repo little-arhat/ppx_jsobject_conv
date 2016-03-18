@@ -1,12 +1,7 @@
 
 1b) strict_option_types -- only convert null as None?
-3) Add is_defined: 'a Optdef.t -> ('a, string) Result.t ??
 5) auto tests
-6) alternative conversions for sum types/variants -- type op = Gte of int | Lte of int  -- {gte: x} or {lte:x}
-   maybe we should convert null-ar constructors as just strings? (optionally)
-     type sex = Male | Female [@@deriving jsobject]
-     jsobject_of_sex Male -> 'Male'; as opposed to ['Male']
-       this will complicate js -> ocaml converter
+
 8) simple objects translations?
 9) functions:
       - for callbacks, that should receive js objects, convert it to wrapped functions,

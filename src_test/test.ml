@@ -122,12 +122,19 @@ type email_info = {
   } [@@deriving jsobject]
 let show_email_info ei = Printf.sprintf "{email=%s}" (Email.show ei.email)
 
-type new_query = Gtn of int [@name "$gt"] [@jsobject.as_object]
+type new_query = Gtn of int [@name "$gt"] [@jsobject.sum_type_as "object"]
                | Ltn of int [@name "$lt"]  [@@deriving jsobject]
 let show_new_query = function
   | Gtn(i) -> Printf.sprintf "Gtn(%d)" i
   | Ltn(i) -> Printf.sprintf "Ltn(%d)" i
 
+type enum = Var1 [@name "var1"] | Var2 | Var3 [@sum_type_as "enum"] [@@deriving jsobject]
+let show_enum = function
+  | Var1 -> "Var1"
+  | Var2 -> "Var2"
+  | Var3 -> "Var3"
+type enum_info = {enum: enum} [@@deriving jsobject]
+let show_enum_info r = Printf.sprintf "{enum=%s}" (show_enum r.enum)
 
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
@@ -197,3 +204,6 @@ let ()=
   run_test "new query2 " "{\"garbage\":12}" new_query_of_jsobject show_new_query;
   run_test "new query3 " "{\"$gt\":\"checki\"}" new_query_of_jsobject show_new_query;
   Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_new_query (Gtn 242));
+  run_test "enum1 " "{\"enum\":\"var1\"}" enum_info_of_jsobject show_enum_info;
+  run_test "enum2 " "{\"enum\":\"Var3\"}" enum_info_of_jsobject show_enum_info;
+  run_test "enum3 " "{\"enum\":\"ftwf\"}" enum_info_of_jsobject show_enum_info;

@@ -83,15 +83,19 @@ type units =
   | Imperial [@jsobject.name "imperial"]
   [@@deriving jsobject]
 ```
-#### [@as_object]
+#### [@sum_type_as]
 
 By default, sum types are converted to javascript as arrays with first element being name of constructor: `["Constructor", A1, ... An]`. This plugin supports
 alternative conversion of sum types to javascrpit as objects: `{"Constructor": A}`. Note, that only sum types, where all constructors are unary can be
 converted this way. One must use tuple explictily instead of multi-arity.
 
-To use this option one can assign attribute `[@jsobject.as_object]` to any of the constructors of target sum type:
+To use this option one can assign attribute `[@jsobject.sum_type_as "object"]` to any of the constructors of target sum type:
 
-`type query = Gt of int | Lt of int | Eq of int [@jsobject.as_object] [@@deriving jsobject]`
+`type query = Gt of int | Lt of int | Eq of int [@jsobject.sum_type_as "object"] [@@deriving jsobject]`
+
+Plugin can also treat sum types with null-ar constructors only as enum, e.g. treat `type a = A | B` as `"A"` or `"B"`. To use this feature, assign
+`[@jsobject.sum_type_as "enum"]` to one of the constructors of target type. Note, one can only use one of the sum_type conversions per type, error
+will be raised otherwise.
 
 
 ## Adding ppx_jsobject_conv to your project

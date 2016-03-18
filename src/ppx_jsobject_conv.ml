@@ -1,3 +1,4 @@
+module L = List
 open StdLabels
 
 open Ppx_core.Std
@@ -40,17 +41,34 @@ module Attrs = struct
     | Some(v) -> v
     | None -> ld.pld_name.txt
 
-  let as_object =
-    Attribute.declare "jsobject.as_object"
+
+  type sum_type_conversion = [`Regular | `AsObject | `AsEnum]
+  let sum_type_as =
+    Attribute.declare "jsobject.sum_type_as"
                       Attribute.Context.constructor_declaration
-                      Ast_pattern.(__)
-                      (ignore)
+                      (Ast_pattern.single_expr_payload
+                         (Ast_pattern.estring Ast_pattern.__))
+                      (fun x -> x)
 
-  let define_as_object cd  =
-    match Attribute.get as_object cd with
-    | Some(_) -> true
-    | None -> false
+  let define_constructor_as cd  =
+    match Attribute.get sum_type_as cd with
+    | Some("object") -> `AsObject
+    | Some("enum") -> `AsEnum
+    | Some(b) -> Location.raise_errorf ~loc:cd.pcd_loc "ppx_jsobject_conv: sum_type_as only accepts object/enum, got %s" b
+    | None -> `Regular
 
+  let define_sum_type_as cds =
+    let conversions = List.map ~f:define_constructor_as cds in
+    let uniq = L.sort_uniq compare conversions in
+    let special = List.filter ~f:(function
+                                  | `Regular -> false
+                                  | _ -> true) uniq in
+    match special with
+    | [] -> `Regular
+    | [n] -> n
+    | _ -> Location.raise_errorf
+             ~loc:((List.hd cds).pcd_loc)
+             "ppx_jsobject_conv: sum type should have at most one distinct sum_type_as attribute"
 end
 
 (* Courtesy of ppx_sexp_conv *)
@@ -178,21 +196,24 @@ module Jsobject_of_expander = struct
 
   (* Conversion of sum types *)
   let jsobject_of_sum cds =
-    let cons_as_objects = List.map ~f:Attrs.define_as_object cds in
-    let define_as_object = List.mem true ~set:cons_as_objects in
+    let conversion = Attrs.define_sum_type_as cds in
     let make_final_expr ~loc scnstr args =
-      match define_as_object, args with
-      | false, [] ->
+      match conversion, args with
+      | `Regular, [] ->
          [%expr to_js_array [jsobject_of_string [%e scnstr]]]
-      | false, vars ->
+      | `Regular, vars ->
          let cnstr_expr = [%expr (jsobject_of_string [%e scnstr])] in
          [%expr to_js_array [%e elist ~loc (cnstr_expr :: vars)]]
-      | true, [var] ->
+      | `AsObject, [var] ->
          let pair = pexp_tuple ~loc [scnstr; var] in
          let pairs = Ast_helper.Exp.array ~loc [pair] in
          [%expr make_jsobject [%e pairs]]
-      | true, _ ->
-         Location.raise_errorf ~loc "ppx_jsobject_conv: when using as_object, all constructors must be unary"
+      | `AsEnum, [] ->
+         [%expr jsobject_of_string [%e scnstr]]
+      | `AsEnum, _ ->
+         Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be nullry"
+      | `AsObject, _ ->
+         Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be unary"
     in
     let item cd =
       let loc = cd.pcd_loc in
@@ -300,7 +321,7 @@ module Jsobject_of = struct
       Jsobject_of_expander.str_type_decl
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
-                   Attribute.T Attrs.as_object;
+                   Attribute.T Attrs.sum_type_as;
                   ]
   ;;
 
@@ -455,11 +476,34 @@ module Of_jsobject_expander = struct
 
 
   let rec sum_of_jsobject ~loc cds =
-    let cons_as_objects = List.map ~f:Attrs.define_as_object cds in
-    let define_as_object = List.mem true ~set:cons_as_objects in
-    if define_as_object
-    then sum_of_jsobject_as_object ~loc cds
-    else sum_of_jsobject_as_array ~loc cds
+    let conversion = Attrs.define_sum_type_as cds in
+    match conversion with
+    | `Regular -> sum_of_jsobject_as_array ~loc cds
+    | `AsObject -> sum_of_jsobject_as_object ~loc cds
+    | `AsEnum -> sum_of_jsobject_as_enum ~loc cds
+
+  and sum_of_jsobject_as_enum ~loc cds =
+    let item cd =
+      let cname = (Attrs.constructor_name cd) in
+      let pcnstr = pstring ~loc cname in
+      (pcnstr -->
+         [%expr [%e eok ~loc (econstruct cd None)]],
+       cname)
+    in
+    let matches, cnames = List.split @@ List.map ~f:item cds in
+    let unknown_match =
+      let allowed = String.concat ~sep:"/" cnames in
+      let msg = Printf.sprintf "expected one of the %s, got " allowed in
+      [pvar ~loc "unknown" -->
+         err_var ~loc msg (evar ~loc "unknown")] in
+    let match_expr  = Fun_or_match.expr ~loc @@
+                        Fun_or_match.Match (matches @ unknown_match) in
+    let outer_expr = [%expr
+                         (fun s ->
+                           defined_or_error s
+                           >>= string_of_jsobject
+                           >>= [%e match_expr])]
+    in Fun_or_match.Fun outer_expr
 
   and sum_of_jsobject_as_object ~loc cds =
     let eobj, pobj = evar ~loc "obj", pvar ~loc "obj" in
@@ -552,7 +596,7 @@ module Of_jsobject_expander = struct
                         Fun_or_match.Match (matches @ unknown_match) in
     let outer_expr = [%expr
                          (fun s ->
-                           is_array [%e input_evar ~loc] >>=
+                           is_array s >>=
                              (fun [%p parr] ->
                                array_get_ind [%e earr] 0
                                >>= string_of_jsobject
@@ -644,6 +688,7 @@ module Of_jsobject = struct
       Of_jsobject_expander.str_type_decl
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
+                   Attribute.T Attrs.sum_type_as;
                   ]
   ;;
 
