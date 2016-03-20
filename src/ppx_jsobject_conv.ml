@@ -41,6 +41,30 @@ module Attrs = struct
     | Some(v) -> v
     | None -> ld.pld_name.txt
 
+  let default =
+    let open! Ast_pattern in
+    Attribute.declare "jsobject.default"
+      Attribute.Context.label_declaration
+      (Ast_pattern.pstr (pstr_eval __ nil ^:: nil))
+      (fun x -> x)
+  let field_default ld =
+    match Attribute.get default ld with
+    | Some(_) as v ->
+       (* Some sanity check: [@default] doesn't make much sense with option types *)
+       let () = match ld.pld_type.ptyp_desc with
+         | Ptyp_constr (id, _) ->
+            (match id.txt with
+             | Longident.Lident "option" ->
+                Location.raise_errorf
+                  ~loc:ld.pld_name.loc "ppx_jsobject_conv: default attr doesn't make sense with fields of option type"
+             | Longident.Lident (_) | Longident.Ldot (_)
+               | Longident.Lapply (_) -> ())
+         | Ptyp_tuple (_) | Ptyp_variant (_)
+           | Ptyp_object (_) | Ptyp_class (_)
+           | Ptyp_package(_) | Ptyp_any | Ptyp_var(_) | Ptyp_arrow(_)
+           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) -> ()
+       in v
+    | None -> None
 
   type sum_type_conversion = [`Regular | `AsObject | `AsEnum]
   let sum_type_as =
@@ -322,6 +346,7 @@ module Jsobject_of = struct
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
                    Attribute.T Attrs.sum_type_as;
+                   Attribute.T Attrs.default;
                   ]
   ;;
 
@@ -608,25 +633,28 @@ module Of_jsobject_expander = struct
        let vname, pname = evar ~loc ("v_" ^ name), pvar ~loc ("v_" ^ name) in
        let field_name = estring ~loc (Attrs.field_name ld) in
        let cnv = Fun_or_match.expr ~loc (type_of_jsobject tp) in
+       let cnv' = match Attrs.field_default ld with
+         | Some(v) ->
+            [%expr defined_or_default [%e cnv] [%e v]]
+         | None -> cnv
+       in
        let lid = Located.lident ~loc name in
-       ((lid, vname), (pname, field_name, cnv))
+       ((lid, vname), (pname, field_name, cnv'))
 
   let record_of_jsobject ~loc fields =
     let rec_details = List.map ~f:mk_rec_details fields in
     let lidexprs, pfc = List.split rec_details in
     let inner_expr = eok ~loc (Ast_helper.Exp.record ~loc lidexprs None) in
     let eobj, pobj = evar ~loc "obj", pvar ~loc "obj" in
-    let body = List.fold_right
-                 ~init: inner_expr
-                 ~f:(fun (pv, field_name, cnv) acc ->
-                   [%expr
-                       object_get_key [%e eobj] [%e field_name]
-                       >>= [%e cnv]
-                       >*= [%e mk_err_expander field_name]
-                       >>= (fun [%p pv] ->
-                         [%e acc])]
-                 ) pfc
+    let item (pname, field_name, cnv) acc =
+      [%expr
+          object_get_key [%e eobj] [%e field_name]
+       >>= [%e cnv]
+       >*= [%e mk_err_expander field_name]
+       >>= (fun [%p pname] ->
+         [%e acc])]
     in
+    let body = List.fold_right ~init: inner_expr ~f:item pfc in
     let outer_expr = [%expr
                          (fun r ->
                            is_object r >>=
@@ -689,6 +717,7 @@ module Of_jsobject = struct
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
                    Attribute.T Attrs.sum_type_as;
+                   Attribute.T Attrs.default;
                   ]
   ;;
 

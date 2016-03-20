@@ -1,6 +1,17 @@
 
 open Result
 
+module JSON = struct
+  let json = (Js.Unsafe.variable "JSON")
+
+  let parse j =
+    let jss = Js.string j in
+    Js.Unsafe.meth_call json "parse" [| Js.Unsafe.inject jss |]
+
+  let stringify obj =
+    Js.Unsafe.meth_call json "stringify" [| obj |]
+end
+
 type x = int * string * int [@@deriving jsobject]
 type f = Af | Bf of string | Cf of int * string * int [@@deriving jsobject]
 type a = Gt [@name "$gt"]
@@ -86,17 +97,12 @@ module M = struct
 end
 type out = Other of M.t [@@deriving jsobject]
 
-module JSON = struct
-  let json = (Js.Unsafe.variable "JSON")
-
-  let parse j =
-    let jss = Js.string j in
-    Js.Unsafe.meth_call json "parse" [| Js.Unsafe.inject jss |]
-
-  let stringify obj =
-    Js.Unsafe.meth_call json "stringify" [| obj |]
-end
-
+type with_defaults = {def_cond: condition [@default Gt(32)];
+                      kind: string [@default "integer"]} [@@deriving jsobject]
+let show_with_defaults = function
+  | {def_cond; kind} -> Printf.sprintf "{def_cond=%s;kind=%s}"
+                                       (show_condition def_cond)
+                                       kind
 
 let show_user = function
   | {age;name;status} ->
@@ -207,3 +213,7 @@ let ()=
   run_test "enum1 " "{\"enum\":\"var1\"}" enum_info_of_jsobject show_enum_info;
   run_test "enum2 " "{\"enum\":\"Var3\"}" enum_info_of_jsobject show_enum_info;
   run_test "enum3 " "{\"enum\":\"ftwf\"}" enum_info_of_jsobject show_enum_info;
+  run_test "with_defaults1 " "{}" with_defaults_of_jsobject show_with_defaults;
+  run_test "with_defaults2 " "{\"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
+  run_test "with_defaults3 " "{\"def_cond\": [\"Gt\", 33], \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
+  run_test "with_defaults_err " "{\"def_cond\": null, \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;

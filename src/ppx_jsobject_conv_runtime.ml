@@ -97,6 +97,11 @@ let defined_or_error obj =
   | Some(o) -> Ok(o)
   | None -> Result.Error("expected value, got undefined")
 
+let defined_or_default a__of_jsobject dflt obj =
+  match Js.Optdef.to_option @@ Js.def obj with
+  | Some(v) -> a__of_jsobject v
+  | None -> Ok(dflt)
+
 (* conversion *)
 let int_of_jsobject obj =
   if Js.typeof obj = (Js.string "number")

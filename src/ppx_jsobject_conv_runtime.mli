@@ -31,6 +31,8 @@ val array_get_ind :
 val object_get_key :
   'a Js.t -> string -> ('a Js.t, string) Result.result
 val defined_or_error : 'a -> ('a, string) Result.result
+val defined_or_default : ('a -> ('b, 'c) Result.result)
+                         -> 'b -> 'a -> ('b, 'c) Result.result
 
 
 (* std convs *)

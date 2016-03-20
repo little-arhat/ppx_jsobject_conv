@@ -97,6 +97,17 @@ Plugin can also treat sum types with null-ar constructors only as enum, e.g. tre
 `[@jsobject.sum_type_as "enum"]` to one of the constructors of target type. Note, one can only use one of the sum_type conversions per type, error
 will be raised otherwise.
 
+#### [@default]
+
+`[@default expr]` allows one to specify value to be used in case field value is missing/undefined in the input object:
+
+```ocaml
+type rec = {name: string; kind: string [@default "human"]} [@@deriving jsobject]
+rec_of_jsobject (JSON.parse {|{"name": "jack"}|})
+Ok({name="jack"; kind="human"})
+rec_of_jsobject (JSON.parse {|{"name": "jack", "kind":null}|})
+Error("kind: expected string got null")
+```
 
 ## Adding ppx_jsobject_conv to your project
 
