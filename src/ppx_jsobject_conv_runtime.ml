@@ -103,6 +103,11 @@ let defined_or_default a__of_jsobject dflt obj =
   | None -> Ok(dflt)
 
 (* conversion *)
+let bool_of_jsobject obj =
+  if Js.typeof obj = (Js.string "boolean")
+  then Ok(Js.to_bool @@ Js.Unsafe.coerce obj)
+  else type_error obj "boolean"
+
 let int_of_jsobject obj =
   if Js.typeof obj = (Js.string "number")
   then Ok(int_of_float @@
@@ -166,6 +171,7 @@ let number_of_int i = Js.number_of_float @@ float_of_int i
 
 (* conversions *)
 
+let jsobject_of_bool v = inject @@ Js.bool v
 let jsobject_of_int v = inject @@ number_of_int v
 let jsobject_of_string v = inject @@ Js.string v
 let jsobject_of_float v = inject @@ Js.number_of_float v

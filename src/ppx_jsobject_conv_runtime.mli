@@ -37,6 +37,7 @@ val defined_or_default : ('a -> ('b, 'c) Result.result)
 
 (* std convs *)
 
+val bool_of_jsobject : 'a Js.t -> (bool, string) Result.result
 val int_of_jsobject : 'a Js.t -> (int, string) Result.result
 val float_of_jsobject : 'a Js.t -> (float, string) Result.result
 val string_of_jsobject : 'a Js.t -> (string, string) Result.result
@@ -55,6 +56,7 @@ val to_js_array : 'a list -> Js.Unsafe.any
 val make_jsobject : (string * Js.Unsafe.any) array -> Js.Unsafe.any
 
 (* std convs *)
+val jsobject_of_bool : bool -> Js.Unsafe.any
 val jsobject_of_int : int -> Js.Unsafe.any
 val jsobject_of_string : string -> Js.Unsafe.any
 val jsobject_of_float : float -> Js.Unsafe.any

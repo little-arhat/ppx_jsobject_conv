@@ -98,11 +98,11 @@ end
 type out = Other of M.t [@@deriving jsobject]
 
 type with_defaults = {def_cond: condition [@default Gt(32)];
+                      enabled: bool [@default true];
                       kind: string [@default "integer"]} [@@deriving jsobject]
 let show_with_defaults = function
-  | {def_cond; kind} -> Printf.sprintf "{def_cond=%s;kind=%s}"
-                                       (show_condition def_cond)
-                                       kind
+  | {def_cond; enabled; kind} -> Printf.sprintf "{def_cond=%s;enabled=%b;kind=%s}"
+                                       (show_condition def_cond) enabled kind
 
 let show_user = function
   | {age;name;status} ->
