@@ -23,7 +23,19 @@ let (>*=) e f = map_err f e
 
 let result_of_bool v er = if v then Ok(v) else Error(er)
 
-let string_typeof v = Js.to_bytestring @@ Js.typeof v
+let string_typeof v =
+  let tpof = Js.typeof v in
+  if tpof = (Js.string "object")
+  then (
+    if Js.instanceof v Js.array_empty
+    then "array"
+    else (if Js.instanceof v (Js.Unsafe.get Js.Unsafe.global "String")
+          then "string"
+          else (if Js.Opt.test @@ Js.some v
+                then "object"
+                else "null")))
+  else Js.to_bytestring tpof
+
 let type_error v expected =
   Result.Error(Printf.sprintf "expected %s, got %s"
                               expected  (string_typeof v))
@@ -48,11 +60,8 @@ let array_fold_right_short_circuit ~f arr ~init =
   with Short_circuit(s) -> Error(s)
 
 let is_object v =
-  let is_object = Js.typeof v = (Js.string "object") in
-  let not_array = not (Js.instanceof v Js.array_empty) in
-  let arg = if not not_array then "array" else (string_typeof v) in
-  let msg = Printf.sprintf "expected object, got %s" arg in
-  result_of_bool (is_object && not_array) msg
+  let msg = Printf.sprintf "expected object, got %s" (string_typeof v) in
+  result_of_bool (string_typeof v = "object") msg
   >|= (fun _ -> v)
 
 let is_array v  =
