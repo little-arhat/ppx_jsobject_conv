@@ -4,6 +4,7 @@ open StdLabels
 include Js
 include Result
 
+type jsfunction = Js.Unsafe.any
 
 let map f e = match e with
   | Ok x -> Ok (f x)
@@ -150,6 +151,10 @@ let list_of_jsobject a__of_jsobject obj =
 let array_of_jsobject a__of_jsobject obj =
   list_of_jsobject a__of_jsobject obj >|= Array.of_list
 
+let jsfunction_of_jsobject obj =
+  if string_typeof obj = "function"
+  then Ok(Obj.magic obj)
+  else type_error obj "function"
 
 (* jsobject_of *)
 (* helpers *)
@@ -184,3 +189,5 @@ let jsobject_of_list jsobject_of__a lst =
   to_js_array @@ List.rev  @@ List.rev_map ~f:jsobject_of__a lst
 let jsobject_of_array jsobject_of__a arr =
   to_js_array @@ Array.to_list @@ Array.map ~f:jsobject_of__a arr
+
+let jsobject_of_jsfunction v = inject v

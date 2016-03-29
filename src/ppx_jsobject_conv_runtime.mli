@@ -5,6 +5,7 @@
 include module type of Js
 include module type of Result
 
+type jsfunction
 
 (* error handling *)
 val (>|=) : ('a, 'b) Result.result -> ('a -> 'c) -> ('c, 'b) Result.result
@@ -50,6 +51,9 @@ val array_of_jsobject :
   ('a Js.t -> ('b, string) Result.result) ->
   'c Js.t -> ('b array, string) Result.result
 
+val jsfunction_of_jsobject :
+  'a Js.t -> (jsfunction, string) Result.result
+
 (** jsobject_of *)
 (* utility conversions *)
 val to_js_array : 'a list -> Js.Unsafe.any
@@ -64,3 +68,5 @@ val jsobject_of_float : float -> Js.Unsafe.any
 val jsobject_of_option : ('a -> Js.Unsafe.any) -> 'a option -> Js.Unsafe.any
 val jsobject_of_list: ('a -> Js.Unsafe.any) -> 'a list -> Js.Unsafe.any
 val jsobject_of_array: ('a -> Js.Unsafe.any) -> 'a array -> Js.Unsafe.any
+
+val jsobject_of_jsfunction : jsfunction -> Js.Unsafe.any

@@ -18,6 +18,9 @@ type a = Gt [@name "$gt"]
        | Lt of string [@name "$lt"]
        | Eq of x [@name "$eq"] [@@deriving jsobject]
 type d = D of (int * string) | E of (string * int) [@@deriving jsobject]
+type recfs = {
+    func: Ppx_jsobject_conv_runtime.jsfunction
+  } [@@deriving jsobject]
 
 type go_style_struct = {
     field_name: string [@key "FieldName"]
