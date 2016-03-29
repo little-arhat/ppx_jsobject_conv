@@ -104,12 +104,12 @@ let defined_or_default a__of_jsobject dflt obj =
 
 (* conversion *)
 let bool_of_jsobject obj =
-  if Js.typeof obj = (Js.string "boolean")
+  if string_typeof obj = "boolean"
   then Ok(Js.to_bool @@ Js.Unsafe.coerce obj)
   else type_error obj "boolean"
 
 let int_of_jsobject obj =
-  if Js.typeof obj = (Js.string "number")
+  if string_typeof obj = "number"
   then Ok(int_of_float @@
             (* TODO: check for "int-nesses" *)
             Js.float_of_number @@
@@ -117,13 +117,13 @@ let int_of_jsobject obj =
   else type_error obj "number"
 
 let float_of_jsobject obj =
-  if Js.typeof obj = (Js.string "number")
+  if string_typeof obj = "number"
   then Ok(Js.float_of_number @@
             Js.Unsafe.coerce obj)
   else type_error obj "number"
 
 let string_of_jsobject obj =
-  if Js.typeof obj = (Js.string "string")
+  if string_typeof obj = "string"
   then Ok(Js.to_string (Js.Unsafe.coerce obj))
   else type_error obj "string"
 
