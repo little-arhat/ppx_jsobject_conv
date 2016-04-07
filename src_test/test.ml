@@ -28,6 +28,8 @@ type go_style_struct = {
 let show_go_style_struct = function
   | {field_name} -> Printf.sprintf "{field_name=%s}" field_name
 
+type noop = {carry: int Js.t; ident: string} [@@deriving jsobject]
+type 'a anoop = {carry: 'a Js.t; ident: string} [@@deriving jsobject]
 
 type maybe_int = int option [@@deriving jsobject]
 type arr_float = float array [@@deriving jsobject]

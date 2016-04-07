@@ -155,26 +155,37 @@ module Jsobject_of_expander = struct
   let name_of_td td = name_of_tdname td.ptype_name.txt
 
   let jsobject_of_std_type (id : Longident.t Located.t) =
-    let txt : Longident.t =
+    let mark, txt =
       match id.txt with
-      | Longident.Lident   s  -> Longident.Lident  (name_of_tdname s)
-      | Longident.Ldot (p, s) -> Longident.Ldot (p, name_of_tdname s)
-      | Longident.Lapply _    -> failwith "ppx_jsobject_conv: jsobject_std_type"
+      | Longident.Lident s ->
+         `Fold, Longident.Lident (name_of_tdname s)
+      | Longident.Ldot (Longident.Lident "Js", "t") ->
+         `FullStop, Longident.Lident "jsobject_of_jst"
+      | Longident.Ldot (p, s) ->
+         `Fold, Longident.Ldot (p, name_of_tdname s)
+      | Longident.Lapply _ ->
+         failwith "ppx_jsobject_conv: jsobject_std_type"
     in
-    pexp_ident ~loc:id.loc { id with txt }
+    let expr = pexp_ident ~loc:id.loc { id with txt } in
+    match mark with
+    | `Fold -> `Fold expr
+    | `FullStop -> `FullStop expr
 
   let rec jsobject_of_type (typ: core_type) : Fun_or_match.t =
     let loc = typ.ptyp_loc in
     match typ.ptyp_desc with
     | Ptyp_constr (cid, args) ->
-       let init = jsobject_of_std_type cid in
-       Fun_or_match.Fun (List.fold_right
-              args
-              ~init
-              ~f:(fun tp2 exp1  ->
-                let exp2 = Fun_or_match.expr
-                             ~loc (jsobject_of_type tp2) in
-                [%expr [%e exp1] [%e exp2]]))
+       let type_expr = match jsobject_of_std_type cid with
+         | `FullStop expr -> expr
+         | `Fold init -> List.fold_right
+                           args
+                           ~init
+                           ~f:(fun tp2 exp1  ->
+                             let exp2 = Fun_or_match.expr
+                                          ~loc (jsobject_of_type tp2) in
+                             [%expr [%e exp1] [%e exp2]])
+       in
+       Fun_or_match.Fun type_expr
     | Ptyp_tuple tps ->
        Fun_or_match.Match [jsobject_of_tuple ~loc tps]
     | Ptyp_variant (row_fields, _, _) ->
@@ -396,24 +407,36 @@ module Of_jsobject_expander = struct
   let name_of_td td = name_of_tdname td.ptype_name.txt
 
   let std_type_of_jsobject id =
-    let txt =
+    let mark, txt =
       match id.txt with
-      | Longident.Lident   s  -> Longident.Lident  (name_of_tdname s)
-      | Longident.Ldot (p, s) -> Longident.Ldot (p, name_of_tdname s)
+      | Longident.Lident s ->
+         `Fold, Longident.Lident (name_of_tdname s)
+      | Longident.Ldot (Longident.Lident "Js", "t") ->
+         `FullStop, Longident.Lident "jst_of_jsobject"
+      | Longident.Ldot (p, s) ->
+         `Fold, Longident.Ldot (p, name_of_tdname s)
       | Longident.Lapply _    -> failwith "ppx_jsobject_conv: type_id_of_jsobject"
     in
-    pexp_ident ~loc:id.loc { id with txt }
+    let expr = pexp_ident ~loc:id.loc { id with txt } in
+    match mark with
+    | `Fold -> `Fold expr
+    | `FullStop -> `FullStop expr
 
   let rec type_of_jsobject typ =
     let loc = typ.ptyp_loc in
     match typ.ptyp_desc with
-    | Ptyp_constr (id, args) ->
-       let init = std_type_of_jsobject id in
-       let args = List.map args
-                          ~f:(fun arg ->
-                            Fun_or_match.expr ~loc
-                                              (type_of_jsobject arg)) in
-       Fun_or_match.Fun (eapply ~loc init args)
+    | Ptyp_constr (cid, args) ->
+       let type_expr = match std_type_of_jsobject cid with
+         | `FullStop expr -> expr
+         | `Fold init -> let args = List.map
+                                      args
+                                      ~f:(fun arg ->
+                                        Fun_or_match.expr
+                                          ~loc
+                                          (type_of_jsobject arg)) in
+                         eapply ~loc init args
+       in
+       Fun_or_match.Fun type_expr
     | Ptyp_tuple tps -> tuple_of_jsobject ~loc tps
     | Ptyp_variant(row_fields, _, _) ->
        variant_of_jsobject ~loc row_fields

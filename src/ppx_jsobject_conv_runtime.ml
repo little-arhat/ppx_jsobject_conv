@@ -156,6 +156,9 @@ let jsfunction_of_jsobject obj =
   then Ok(Obj.magic obj)
   else type_error obj "function"
 
+let jst_of_jsobject obj =
+  Ok(Obj.magic obj)
+
 (* jsobject_of *)
 (* helpers *)
 let inject o = Js.Unsafe.inject o
@@ -191,3 +194,5 @@ let jsobject_of_array jsobject_of__a arr =
   to_js_array @@ Array.to_list @@ Array.map ~f:jsobject_of__a arr
 
 let jsobject_of_jsfunction v = inject v
+
+let jsobject_of_jst v = inject v
