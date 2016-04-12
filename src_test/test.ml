@@ -29,7 +29,7 @@ let show_go_style_struct = function
   | {field_name} -> Printf.sprintf "{field_name=%s}" field_name
 
 type noop = {carry: int Js.t; ident: string} [@@deriving jsobject]
-type 'a anoop = {carry: 'a Js.t; ident: string} [@@deriving jsobject]
+type anoop = {acarry: Js.Unsafe.any Js.t; aident: string} [@@deriving jsobject]
 
 type maybe_int = int option [@@deriving jsobject]
 type arr_float = float array [@@deriving jsobject]
@@ -165,6 +165,9 @@ let run_test name inp conv_func show_func =
      Printf.printf "ERR [%s]: %s --> %s\n" name inp msg
 
 let ()=
+  let anoop = {acarry=Js.Unsafe.obj [|("test", Js.Unsafe.inject Js.null)|]; aident="ident"} in
+  let aobj = jsobject_of_anoop anoop in
+  let () = Firebug.console##log aobj in
   let full_user = "{\"age\": 18, \"name\":\"Varya\", \"status\":[\"Created\"]}" in
   let partial_user1 = "{}" in
   let partial_user2 = "{\"age\": 24}" in
