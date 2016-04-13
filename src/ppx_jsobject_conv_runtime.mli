@@ -55,6 +55,7 @@ val array_of_jsobject :
 val jsfunction_of_jsobject :
   'a Js.t -> (jsfunction, string) Result.result
 val jst_of_jsobject : 'a Js.t -> ('b Js.t, string) Result.result
+val jsany_of_jsobject : 'a Js.t -> (Js.Unsafe.any, string) Result.result
 
 (** jsobject_of *)
 (* utility conversions *)
@@ -74,3 +75,4 @@ val jsobject_of_array: ('a -> Js.Unsafe.any) -> 'a array -> Js.Unsafe.any
 
 val jsobject_of_jsfunction : jsfunction -> Js.Unsafe.any
 val jsobject_of_jst : 'a Js.t -> Js.Unsafe.any
+val jsobject_of_jsany : Js.Unsafe.any -> Js.Unsafe.any

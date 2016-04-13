@@ -31,6 +31,7 @@ let show_go_style_struct = function
 type noop = {carry: int Js.t; ident: string} [@@deriving jsobject]
 type anoop = {acarry: Js.Unsafe.any Js.t; aident: string} [@@deriving jsobject]
 type test_unit = (unit * unit) [@@deriving jsobject]
+type test_any = Js.Unsafe.any * int [@@deriving jsobject]
 
 type maybe_int = int option [@@deriving jsobject]
 type arr_float = float array [@@deriving jsobject]

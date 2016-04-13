@@ -163,6 +163,9 @@ module Jsobject_of_expander = struct
          `Fold, Longident.Lident (name_of_tdname s)
       | Longident.Ldot (Longident.Lident "Js", "t") ->
          `FullStop, Longident.Lident "jsobject_of_jst"
+      | Longident.Ldot (Longident.Ldot
+                          (Longident.Lident "Js", "Unsafe"), "any") ->
+         `FullStop, Longident.Lident "jsobject_of_jsany"
       | Longident.Ldot (p, s) ->
          `Fold, Longident.Ldot (p, name_of_tdname s)
       | Longident.Lapply _ ->
@@ -428,6 +431,9 @@ module Of_jsobject_expander = struct
          `Fold, Longident.Lident (name_of_tdname s)
       | Longident.Ldot (Longident.Lident "Js", "t") ->
          `FullStop, Longident.Lident "jst_of_jsobject"
+      | Longident.Ldot (Longident.Ldot
+                          (Longident.Lident "Js", "Unsafe"), "any") ->
+         `FullStop, Longident.Lident "jsany_of_jsobject"
       | Longident.Ldot (p, s) ->
          `Fold, Longident.Ldot (p, name_of_tdname s)
       | Longident.Lapply _    -> failwith "ppx_jsobject_conv: type_id_of_jsobject"

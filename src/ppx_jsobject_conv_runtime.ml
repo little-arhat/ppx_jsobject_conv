@@ -164,6 +164,9 @@ let jsfunction_of_jsobject obj =
 let jst_of_jsobject obj =
   Ok(Obj.magic obj)
 
+let jsany_of_jsobject obj =
+  Ok(Obj.magic obj)
+
 (* jsobject_of *)
 (* helpers *)
 let inject o = Js.Unsafe.inject o
@@ -202,3 +205,4 @@ let jsobject_of_array jsobject_of__a arr =
 let jsobject_of_jsfunction v = inject v
 
 let jsobject_of_jst v = inject v
+let jsobject_of_jsany v = v
