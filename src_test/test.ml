@@ -1,6 +1,10 @@
 
 open Result
 
+(* trick ocamldep (maybe do this via myocamlbuild and _tags) *)
+(* fix this *)
+module Pjcr = Ppx_jsobject_conv_runtime
+
 module JSON = struct
   let json = (Js.Unsafe.variable "JSON")
 
@@ -114,10 +118,6 @@ let show_with_defaults = function
 let show_user = function
   | {age;name;status} ->
      Printf.sprintf "{age=%d;name=%s;status=%s}" age name (show_status status)
-
-(* trick ocamldep (maybe do this via myocamlbuild and _tags) *)
-(* fix this *)
-module Pjcr = Ppx_jsobject_conv_runtime
 
 module Email = struct
   type t = string [@@deriving jsobject]

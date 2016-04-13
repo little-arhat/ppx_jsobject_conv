@@ -59,20 +59,20 @@ val jsany_of_jsobject : 'a Js.t -> (Js.Unsafe.any, string) Result.result
 
 (** jsobject_of *)
 (* utility conversions *)
-val to_js_array : 'a list -> Js.Unsafe.any
-val make_jsobject : (string * Js.Unsafe.any) array -> Js.Unsafe.any
+val to_js_array : 'a list -> 'b Js.t
+val make_jsobject : (string * 'm Js.t) array -> 'a Js.t
 
 (* std convs *)
-val jsobject_of_bool : bool -> Js.Unsafe.any
-val jsobject_of_int : int -> Js.Unsafe.any
-val jsobject_of_unit : unit -> Js.Unsafe.any
-val jsobject_of_string : string -> Js.Unsafe.any
-val jsobject_of_float : float -> Js.Unsafe.any
+val jsobject_of_bool : bool -> 'm Js.t
+val jsobject_of_int : int -> 'm Js.t
+val jsobject_of_unit : unit -> 'm Js.t
+val jsobject_of_string : string -> 'm Js.t
+val jsobject_of_float : float -> 'm Js.t
 
-val jsobject_of_option : ('a -> Js.Unsafe.any) -> 'a option -> Js.Unsafe.any
-val jsobject_of_list: ('a -> Js.Unsafe.any) -> 'a list -> Js.Unsafe.any
-val jsobject_of_array: ('a -> Js.Unsafe.any) -> 'a array -> Js.Unsafe.any
+val jsobject_of_option : ('a -> 'm Js.t) -> 'a option -> 'm Js.t
+val jsobject_of_list: ('a -> 'm Js.t) -> 'a list -> 'n Js.t
+val jsobject_of_array: ('a -> 'm Js.t) -> 'a array -> 'n Js.t
 
-val jsobject_of_jsfunction : jsfunction -> Js.Unsafe.any
-val jsobject_of_jst : 'a Js.t -> Js.Unsafe.any
-val jsobject_of_jsany : Js.Unsafe.any -> Js.Unsafe.any
+val jsobject_of_jsfunction : jsfunction -> 'm Js.t
+val jsobject_of_jst : 'a Js.t -> 'm Js.t
+val jsobject_of_jsany : 'm Js.t -> 'm Js.t

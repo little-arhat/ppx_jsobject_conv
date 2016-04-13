@@ -181,28 +181,28 @@ let to_js_array l =
   arr
 
 let make_jsobject pairs =
-  inject @@ Js.Unsafe.obj @@ pairs
+  Js.Unsafe.obj @@ Array.map pairs ~f:(fun (k, v)-> (k, inject v))
 
 let number_of_int i = Js.number_of_float @@ float_of_int i
 
 (* conversions *)
 
-let jsobject_of_bool v = inject @@ Js.bool v
-let jsobject_of_unit () = inject @@ Js.undefined
-let jsobject_of_int v = inject @@ number_of_int v
-let jsobject_of_string v = inject @@ Js.string v
-let jsobject_of_float v = inject @@ Js.number_of_float v
+let jsobject_of_bool v = Js.Unsafe.coerce @@ Js.bool v
+let jsobject_of_unit () = Obj.magic Js.undefined
+let jsobject_of_int v = Js.Unsafe.coerce @@ number_of_int v
+let jsobject_of_string v = Js.Unsafe.coerce @@ Js.string v
+let jsobject_of_float v = Js.Unsafe.coerce @@ Js.number_of_float v
 
 let jsobject_of_option jsobject_of__a = function
   | Some(x) -> jsobject_of__a x
-  | None -> inject @@ Js.null
+  | None -> Obj.magic Js.null
 
 let jsobject_of_list jsobject_of__a lst =
   to_js_array @@ List.rev  @@ List.rev_map ~f:jsobject_of__a lst
 let jsobject_of_array jsobject_of__a arr =
   to_js_array @@ Array.to_list @@ Array.map ~f:jsobject_of__a arr
 
-let jsobject_of_jsfunction v = inject v
+let jsobject_of_jsfunction v = Obj.magic v
 
-let jsobject_of_jst v = inject v
+let jsobject_of_jst v = Js.Unsafe.coerce v
 let jsobject_of_jsany v = v

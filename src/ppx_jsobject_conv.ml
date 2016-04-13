@@ -148,7 +148,7 @@ module Jsobject_of_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
-        [%type: [%t ty] -> Js.Unsafe.any])
+        [%type: [%t ty] -> 'm Js.t])
 
   let name_of_tdname name = match name with
     | "t" -> "jsobject_of"
