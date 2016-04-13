@@ -109,6 +109,11 @@ let bool_of_jsobject obj =
   then Ok(Js.to_bool @@ Js.Unsafe.coerce obj)
   else type_error obj "boolean"
 
+let unit_of_jsobject obj =
+  if string_typeof obj = "undefined"
+  then Ok(())
+  else type_error obj "undefined"
+
 let int_of_jsobject obj =
   if string_typeof obj = "number"
   then Ok(int_of_float @@
@@ -180,6 +185,7 @@ let number_of_int i = Js.number_of_float @@ float_of_int i
 (* conversions *)
 
 let jsobject_of_bool v = inject @@ Js.bool v
+let jsobject_of_unit () = inject @@ Js.undefined
 let jsobject_of_int v = inject @@ number_of_int v
 let jsobject_of_string v = inject @@ Js.string v
 let jsobject_of_float v = inject @@ Js.number_of_float v
