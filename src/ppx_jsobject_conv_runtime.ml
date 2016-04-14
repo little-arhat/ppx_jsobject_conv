@@ -73,7 +73,7 @@ let is_array v  =
     in arr)
 
 let array_length_f (arr : 'a Js.t #Js.js_array Js.t) : int =
-  (Js.Unsafe.meth_call arr "length" [||])
+  (Js.Unsafe.get arr "length")
 
 let is_array_of_size_n obj expected =
   is_array obj >>=

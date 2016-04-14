@@ -341,7 +341,7 @@ module Jsobject_of_expander = struct
     in
     let func_name = name_of_td td in
     let body'' =
-      let _, eps = List.split tparams in
+      let _, eps = List.split (List.rev tparams) in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
@@ -738,7 +738,7 @@ module Of_jsobject_expander = struct
     in
     let func_name = name_of_td td in
     let body'' =
-      let _, eps = List.split tparams in
+      let _, eps = List.split (List.rev tparams) in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
