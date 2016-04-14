@@ -149,13 +149,16 @@ let show_enum = function
 type enum_info = {enum: enum} [@@deriving jsobject]
 let show_enum_info r = Printf.sprintf "{enum=%s}" (show_enum r.enum)
 
-type 'a data_wrapper = {data: 'a; kind: string} [@@deriving jsobject]
-let show_data_wrapper show_a d =
-  Printf.sprintf "{data:%s;kind:%s}" (show_a d.data) d.kind
+type ('a,'b) data_wrapper = {data: 'a; ident: 'b; kind: string} [@@deriving jsobject]
+let show_data_wrapper show_a show_b d =
+  Printf.sprintf "{data:%s;ident:%s;kind:%s}"
+                 (show_a d.data) (show_b d.ident) d.kind
 type some_detais = {details: string} [@@deriving jsobject]
 let show_some_details sd = Printf.sprintf "{details:%s}" sd.details
-type sddw = some_detais data_wrapper [@@deriving jsobject]
-let show_sddw s = show_data_wrapper show_some_details s
+type some_ident = string [@@deriving jsobject]
+let show_some_ident sd = sd
+type sddw = (some_detais, some_ident) data_wrapper [@@deriving jsobject]
+let show_sddw s = show_data_wrapper show_some_details show_some_ident s
 
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
@@ -235,5 +238,5 @@ let ()=
   run_test "with_defaults2 " "{\"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults3 " "{\"def_cond\": [\"Gt\", 33], \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults_err " "{\"def_cond\": null, \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
-  run_test "sddw " "{\"data\": {\"details\":\"fond\"}, \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
-  Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; data={details="Some"}})
+  run_test "sddw " "{\"data\": {\"details\":\"fond\"}, \"ident\":\"some\", \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
+  Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; ident="NOO";data={details="Some"}})

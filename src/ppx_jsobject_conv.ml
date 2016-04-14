@@ -184,10 +184,10 @@ module Jsobject_of_expander = struct
     | Ptyp_constr (cid, args) ->
        let type_expr = match jsobject_of_std_type cid with
          | `FullStop expr -> expr
-         | `Fold init -> List.fold_right
+         | `Fold init -> List.fold_left
                            args
                            ~init
-                           ~f:(fun tp2 exp1  ->
+                           ~f:(fun exp1 tp2 ->
                              let exp2 = Fun_or_match.expr
                                           ~loc (jsobject_of_type tparams tp2) in
                              [%expr [%e exp1] [%e exp2]])
@@ -341,7 +341,7 @@ module Jsobject_of_expander = struct
     in
     let func_name = name_of_td td in
     let body'' =
-      let _, eps = List.split (List.rev tparams) in
+      let _, eps = List.split tparams in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
@@ -449,13 +449,14 @@ module Of_jsobject_expander = struct
     | Ptyp_constr (cid, args) ->
        let type_expr = match std_type_of_jsobject cid with
          | `FullStop expr -> expr
-         | `Fold init -> let args = List.map
-                                      args
-                                      ~f:(fun arg ->
-                                        Fun_or_match.expr
-                                          ~loc
-                                          (type_of_jsobject tparams arg)) in
-                         eapply ~loc init args
+         | `Fold init ->
+            let args = List.map
+                         args
+                         ~f:(fun arg ->
+                           Fun_or_match.expr
+                             ~loc
+                             (type_of_jsobject tparams arg)) in
+            eapply ~loc init args
        in
        Fun_or_match.Fun type_expr
     | Ptyp_tuple tps -> tuple_of_jsobject ~loc tparams tps
@@ -738,7 +739,7 @@ module Of_jsobject_expander = struct
     in
     let func_name = name_of_td td in
     let body'' =
-      let _, eps = List.split (List.rev tparams) in
+      let _, eps = List.split tparams in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
