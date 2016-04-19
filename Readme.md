@@ -1,3 +1,4 @@
+
 # Ppx_jsobject_conv
 
 Ppx plugin for `Typeconv` to derive conversion from ocaml types to js objects to use with `js_of_ocaml`.
@@ -86,7 +87,7 @@ type units =
 #### [@sum_type_as]
 
 By default, sum types are converted to javascript as arrays with first element being name of constructor: `["Constructor", A1, ... An]`. This plugin supports
-alternative conversion of sum types to javascrpit as objects: `{"Constructor": A}`. Note, that only sum types, where all constructors are unary can be
+alternative conversion of sum types to javascript as objects: `{"Constructor": A}`. Note, that only sum types, where all constructors are unary can be
 converted this way. One must use tuple explictily instead of multi-arity.
 
 To use this option one can assign attribute `[@jsobject.sum_type_as "object"]` to any of the constructors of target sum type:
@@ -96,6 +97,10 @@ To use this option one can assign attribute `[@jsobject.sum_type_as "object"]` t
 Plugin can also treat sum types with null-ar constructors only as enum, e.g. treat `type a = A | B` as `"A"` or `"B"`. To use this feature, assign
 `[@jsobject.sum_type_as "enum"]` to one of the constructors of target type. Note, one can only use one of the sum_type conversions per type, error
 will be raised otherwise.
+
+Another option is to convert sum type without any tags, e.g. treat `type a = A of string | B of int` as `"arg"` or `42`. In this case, parser will try
+to parse input as arguments one by one (starting from the last one). Note, that this option can lead to assimetric results, like for this type:
+`type a = A of string | B of string`. For type `a`, plugin will always generate javascript string, that will be converted to `B arg`.
 
 #### [@default]
 

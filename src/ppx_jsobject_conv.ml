@@ -66,7 +66,7 @@ module Attrs = struct
        in v
     | None -> None
 
-  type sum_type_conversion = [`Regular | `AsObject | `AsEnum]
+  type sum_type_conversion = [`Regular | `AsObject | `AsEnum | `AsTagless]
   let sum_type_as =
     Attribute.declare "jsobject.sum_type_as"
                       Attribute.Context.constructor_declaration
@@ -78,7 +78,8 @@ module Attrs = struct
     match Attribute.get sum_type_as cd with
     | Some("object") -> `AsObject
     | Some("enum") -> `AsEnum
-    | Some(b) -> Location.raise_errorf ~loc:cd.pcd_loc "ppx_jsobject_conv: sum_type_as only accepts object/enum, got %s" b
+    | Some("tagless") -> `AsTagless
+    | Some(b) -> Location.raise_errorf ~loc:cd.pcd_loc "ppx_jsobject_conv: sum_type_as only accepts object/enum/tagless, got %s" b
     | None -> `Regular
 
   let define_sum_type_as cds =
@@ -253,12 +254,17 @@ module Jsobject_of_expander = struct
          let pair = pexp_tuple ~loc [scnstr; var] in
          let pairs = Ast_helper.Exp.array ~loc [pair] in
          [%expr make_jsobject [%e pairs]]
+      | `AsTagless, [var] ->
+         var
       | `AsEnum, [] ->
          [%expr jsobject_of_string [%e scnstr]]
       | `AsEnum, _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be nullry"
       | `AsObject, _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be unary"
+      | `AsTagless, _ ->
+         Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as tagless, all constructors must be unary"
+
     in
     let item cd =
       let loc = cd.pcd_loc in
@@ -554,6 +560,40 @@ module Of_jsobject_expander = struct
     | `Regular -> sum_of_jsobject_as_array tparams ~loc cds
     | `AsObject -> sum_of_jsobject_as_object tparams ~loc cds
     | `AsEnum -> sum_of_jsobject_as_enum ~loc cds
+    | `AsTagless -> sum_of_jsobject_as_tagless ~loc tparams cds
+
+  and sum_of_jsobject_as_tagless ~loc tparams cds =
+    let eobj, pobj = mk_ep_var ~loc "obj" in
+    let inner_expr =
+      let emsg = estring ~loc "could not apply any conversion" in
+      [%expr Result.Error([%e emsg])]
+    in
+    let item acc cd =
+      let tp = match cd.pcd_args with
+        | [a] -> a
+        | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: when using as_tagless, all constructors must be unary"
+      in
+      let vanila_name = cd.pcd_name.txt in
+      let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
+      let econ = eok ~loc (econstruct cd (Some(pexp_tuple ~loc [eca]))) in
+      let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
+      [%expr
+          [%e cnv] [%e eobj]
+          |> (function
+              | Result.Ok([%p pca]) -> [%e econ]
+              | Result.Error(_) -> [%e acc])]
+    in
+    let body = List.fold_left ~init:inner_expr
+                              ~f:item
+                              cds
+    in
+    let outer_expr = [%expr
+                         (fun r ->
+                           is_object r
+                           >>= (fun [%p pobj] -> [%e body]))
+                     ]
+    in
+    Fun_or_match.Fun outer_expr
 
   and sum_of_jsobject_as_enum ~loc cds =
     let item cd =
@@ -601,14 +641,14 @@ module Of_jsobject_expander = struct
       let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
       [%expr
           object_get_key [%e eobj] [%e field_name]
-          >>= defined_or_error
-          |> (function
-              | Ok([%p pname]) ->
-                 [%e cnv] [%e vname]
-                 >*= [%e mk_err_expander field_name]
-                 >>= (fun [%p pca] -> [%e econ])
-              | Result.Error(_) ->
-                 [%e acc])
+       >>= defined_or_error
+       |> (function
+           | Result.Ok([%p pname]) ->
+              [%e cnv] [%e vname]
+              >*= [%e mk_err_expander field_name]
+              >>= (fun [%p pca] -> [%e econ])
+           | Result.Error(_) ->
+              [%e acc])
       ]
     in
     let body = List.fold_left ~init:inner_expr

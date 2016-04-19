@@ -160,6 +160,13 @@ let show_some_ident sd = sd
 type sddw = (some_detais, some_ident) data_wrapper [@@deriving jsobject]
 let show_sddw s = show_data_wrapper show_some_details show_some_ident s
 
+type tagless = U1 of user [@jsobject.sum_type_as "tagless"]
+             | U2 of new_query [@@deriving jsobject]
+let show_tagless = function
+  | U1 u -> Printf.sprintf "U1(%s)" (show_user u)
+  | U2 q -> Printf.sprintf "U2(%s)" (show_new_query q)
+
+
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
   let parsed = JSON.parse inp in
@@ -228,15 +235,18 @@ let ()=
   run_test "email2" "{\"email\":\"someexample.org\"}" email_info_of_jsobject show_email_info;
   run_test "new query0 " "{\"$lt\":0}" new_query_of_jsobject show_new_query;
   run_test "new query1 " "{\"$gt\":12}" new_query_of_jsobject show_new_query;
-  run_test "new query2 " "{\"garbage\":12}" new_query_of_jsobject show_new_query;
-  run_test "new query3 " "{\"$gt\":\"checki\"}" new_query_of_jsobject show_new_query;
+  run_test "new query2 err " "{\"garbage\":12}" new_query_of_jsobject show_new_query;
+  run_test "new query3 err " "{\"$gt\":\"checki\"}" new_query_of_jsobject show_new_query;
   Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_new_query (Gtn 242));
   run_test "enum1 " "{\"enum\":\"var1\"}" enum_info_of_jsobject show_enum_info;
   run_test "enum2 " "{\"enum\":\"Var3\"}" enum_info_of_jsobject show_enum_info;
-  run_test "enum3 " "{\"enum\":\"ftwf\"}" enum_info_of_jsobject show_enum_info;
+  run_test "enum3_err " "{\"enum\":\"ftwf\"}" enum_info_of_jsobject show_enum_info;
   run_test "with_defaults1 " "{}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults2 " "{\"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults3 " "{\"def_cond\": [\"Gt\", 33], \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults_err " "{\"def_cond\": null, \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "sddw " "{\"data\": {\"details\":\"fond\"}, \"ident\":\"some\", \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
-  Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; ident="NOO";data={details="Some"}})
+  Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; ident="NOO";data={details="Some"}});
+  run_test "tagless1" full_user tagless_of_jsobject show_tagless;
+  run_test "tagless2" "{\"$gt\":12}" tagless_of_jsobject show_tagless;
+  run_test "tagless_err " "{\"enum\":\"ftwf\"}" tagless_of_jsobject show_tagless;
