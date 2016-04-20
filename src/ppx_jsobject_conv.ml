@@ -564,8 +564,8 @@ module Of_jsobject_expander = struct
 
   and sum_of_jsobject_as_tagless ~loc tparams cds =
     let eobj, pobj = mk_ep_var ~loc "obj" in
+    let emsg, pmsg = mk_ep_var ~loc "emsg" in
     let inner_expr =
-      let emsg = estring ~loc "could not apply any conversion" in
       [%expr Result.Error([%e emsg])]
     in
     let item acc cd =
@@ -581,7 +581,7 @@ module Of_jsobject_expander = struct
           [%e cnv] [%e eobj]
           |> (function
               | Result.Ok([%p pca]) -> [%e econ]
-              | Result.Error(_) -> [%e acc])]
+              | Result.Error([%p pmsg]) -> [%e acc])]
     in
     let body = List.fold_left ~init:inner_expr
                               ~f:item
