@@ -52,12 +52,12 @@ exception Short_circuit of string
 
 let array_fold_right_short_circuit ~f arr ~init =
   try
-    Ok(Array.fold_right
-         ~f:(fun el acc ->
-           match f el acc with
-           | Ok(v) -> v
+    Ok(snd @@ Array.fold_right
+         ~f:(fun el (i, acc) ->
+           match f i el acc with
+           | Ok(v) -> (i + 1, v)
            | Error(s) -> raise @@ Short_circuit(s))
-         ~init arr)
+         ~init:(0, init) arr)
   with Short_circuit(s) -> Error(s)
 
 let is_object v =
@@ -146,8 +146,9 @@ let list_of_jsobject a__of_jsobject obj =
     (fun arr ->
       let oarr = Js.to_array arr in
       array_fold_right_short_circuit
-        ~f:(fun jsel l ->
+        ~f:(fun i jsel l ->
           a__of_jsobject jsel
+          >*= (fun emsg -> concat_error_messages (string_of_int i) emsg)
           >|= (fun oel -> oel::l))
         ~init:[]
         oarr

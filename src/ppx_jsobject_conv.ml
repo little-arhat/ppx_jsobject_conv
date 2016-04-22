@@ -564,9 +564,15 @@ module Of_jsobject_expander = struct
 
   and sum_of_jsobject_as_tagless ~loc tparams cds =
     let eobj, pobj = mk_ep_var ~loc "obj" in
-    let emsg, pmsg = mk_ep_var ~loc "emsg" in
     let inner_expr =
-      [%expr Result.Error([%e emsg])]
+      let errnames = List.map
+                       cds
+                       ~f:(fun cd ->
+                         let e = evar ~loc ("emsg_" ^ cd.pcd_name.txt) in
+                         [%expr "(" ^ [%e e] ^ ")"]) in
+      let errlist = elist ~loc errnames in
+      let errcon = eapply ~loc [%expr String.concat "; "] [errlist] in
+      err_var ~loc "_: neither of possible conversions applicable, possible errors " errcon
     in
     let item acc cd =
       let tp = match cd.pcd_args with
@@ -575,13 +581,14 @@ module Of_jsobject_expander = struct
       in
       let vanila_name = cd.pcd_name.txt in
       let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
+      let perr = pvar ~loc ("emsg_" ^ vanila_name) in
       let econ = eok ~loc (econstruct cd (Some(pexp_tuple ~loc [eca]))) in
       let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
       [%expr
           [%e cnv] [%e eobj]
           |> (function
               | Result.Ok([%p pca]) -> [%e econ]
-              | Result.Error([%p pmsg]) -> [%e acc])]
+              | Result.Error([%p perr]) -> [%e acc])]
     in
     let body = List.fold_left ~init:inner_expr
                               ~f:item
