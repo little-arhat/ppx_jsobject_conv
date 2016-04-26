@@ -35,7 +35,7 @@ let string_typeof v =
           else (if Js.Opt.test @@ Js.some v
                 then "object"
                 else "null")))
-  else Js.to_bytestring tpof
+  else Js.to_string tpof
 
 let type_error v expected =
   Result.Error(Printf.sprintf "expected %s, got %s"
