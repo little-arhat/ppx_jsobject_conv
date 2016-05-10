@@ -259,7 +259,7 @@ module Jsobject_of_expander = struct
       | `AsEnum, [] ->
          [%expr jsobject_of_string [%e scnstr]]
       | `AsEnum, _ ->
-         Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be nullry"
+         Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as enum, all constructors must be nullary"
       | `AsObject, _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be unary"
       | `AsTagless, _ ->
