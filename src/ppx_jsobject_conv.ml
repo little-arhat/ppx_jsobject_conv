@@ -79,7 +79,8 @@ module Attrs = struct
     | Some("object") -> `AsObject
     | Some("enum") -> `AsEnum
     | Some("tagless") -> `AsTagless
-    | Some(b) -> Location.raise_errorf ~loc:cd.pcd_loc "ppx_jsobject_conv: sum_type_as only accepts object/enum/tagless, got %s" b
+    | Some("regular") -> `Regular
+    | Some(b) -> Location.raise_errorf ~loc:cd.pcd_loc "ppx_jsobject_conv: sum_type_as only accepts object/enum/tagless/regular, got %s" b
     | None -> `Regular
 
   let define_sum_type_as cds =
