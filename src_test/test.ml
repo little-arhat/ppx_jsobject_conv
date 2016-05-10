@@ -1,5 +1,4 @@
 
-open Result
 
 (* trick ocamldep (maybe do this via myocamlbuild and _tags) *)
 (* fix this *)
@@ -160,12 +159,18 @@ let show_some_ident sd = sd
 type sddw = (some_detais, some_ident) data_wrapper [@@deriving jsobject]
 let show_sddw s = show_data_wrapper show_some_details show_some_ident s
 
-type tagless = U1 of user [@jsobject.sum_type_as "tagless"]
-             | U2 of new_query [@@deriving jsobject]
+type tagless =  U2 of {inlinef: float; inlines: string}
+              | U1 of user [@jsobject.sum_type_as "tagless"]
+                           [@@deriving jsobject]
 let show_tagless = function
   | U1 u -> Printf.sprintf "U1(%s)" (show_user u)
-  | U2 q -> Printf.sprintf "U2(%s)" (show_new_query q)
+  | U2 {inlinef; inlines} -> Printf.sprintf "U2({inlinef=%s;inlines=%s})"
+                                            (string_of_float inlinef)
+                                            inlines
 
+type inlines = Inline of {inlined: int} [@@deriving jsobject]
+let show_inlines = function
+  | Inline {inlined} -> Printf.sprintf "Inline {inlined=%d}" inlined
 
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
@@ -248,5 +253,6 @@ let ()=
   run_test "sddw " "{\"data\": {\"details\":\"fond\"}, \"ident\":\"some\", \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
   Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; ident="NOO";data={details="Some"}});
   run_test "tagless1" full_user tagless_of_jsobject show_tagless;
-  run_test "tagless2" "{\"$gt\":12}" tagless_of_jsobject show_tagless;
+  run_test "tagless2" "{\"inlinef\":12.0, \"inlines\":\"yes\"}" tagless_of_jsobject show_tagless;
   run_test "tagless_err " "{\"enum\":\"ftwf\"}" tagless_of_jsobject show_tagless;
+  run_test "inline" "[\"Inline\", {\"inlined\":12}]" inlines_of_jsobject show_inlines;

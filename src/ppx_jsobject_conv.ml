@@ -132,12 +132,56 @@ module Fun_or_match = struct
      List.map vars ~f:(evar ~loc))
 end
 
-let jsobject_type_is_recursive =
-  types_are_recursive ~short_circuit:(fun _typ -> None)
+(* XXX: Temporary workaround, while ppx_core is fixing exception there *)
+exception Stop
+let type_is_recursive_repl short_circuit type_names =
+  object(self)
+    inherit Ast_traverse.iter as super
+
+
+    method! core_type ctyp =
+      match short_circuit ctyp with
+      | Some false -> ()
+      | Some true  -> raise_notrace Stop
+      | None ->
+         (match ctyp.ptyp_desc with
+         | Ptyp_constr ({ txt = Longident.Lident id; _ }, _) when List.mem id ~set:type_names ->
+            raise Stop
+         | _ -> super#core_type ctyp) [@ocaml.warning "-4"]
+
+    method! label_declaration ld =
+      self#core_type ld.pld_type
+
+    method! constructor_declaration cd =
+      (* Don't recurse through cd.pcd_res *)
+      match cd.pcd_args with
+      | Pcstr_tuple args -> List.iter ~f:(fun ty -> self#core_type ty) args
+      | Pcstr_record fields ->
+         List.iter ~f:(fun ld -> self#label_declaration ld) fields
+  end
+
+let types_are_recursive_repl ?(stop_on_functions = true)
+                        ?(short_circuit = fun _ -> None)
+                        tds =
+  let type_names = List.map ~f:(fun td -> td.ptype_name.txt) tds in
+  let short_circuit =
+    if stop_on_functions then
+      fun ty ->
+      (match ty.ptyp_desc with
+      | Ptyp_arrow _ -> Some false
+      | _ -> short_circuit ty) [@ocaml.warning "-4"]
+    else short_circuit
+  in
+  let check = (type_is_recursive_repl short_circuit type_names)#type_declaration in
+  try
+    List.iter ~f:(fun td -> check td) tds;
+    false
+  with Stop ->
+    true
 
 let really_recursive rec_flag tds =
   match rec_flag with
-  | Recursive    -> if jsobject_type_is_recursive tds then Recursive else Nonrecursive
+  | Recursive    -> if types_are_recursive_repl tds then Recursive else Nonrecursive
   | Nonrecursive -> Nonrecursive
 
 let constrained_function_binding = fun
@@ -242,7 +286,7 @@ module Jsobject_of_expander = struct
     in Fun_or_match.Match (List.map ~f:item row_fields)
 
   (* Conversion of sum types *)
-  let jsobject_of_sum tparams cds =
+  let rec jsobject_of_sum tparams cds =
     let conversion = Attrs.define_sum_type_as cds in
     let make_final_expr ~loc scnstr args =
       match conversion, args with
@@ -265,17 +309,16 @@ module Jsobject_of_expander = struct
          Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as object, all constructors must be unary"
       | `AsTagless, _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: when using sum_type_as tagless, all constructors must be unary"
-
     in
     let item cd =
       let loc = cd.pcd_loc in
       let lid = Located.map lident cd.pcd_name in
       let scnstr = estring ~loc (Attrs.constructor_name cd) in
       match cd.pcd_args with
-      | [] ->
+      | Pcstr_tuple [] ->
          ppat_construct ~loc lid None -->
            make_final_expr ~loc scnstr []
-      | args ->
+      | Pcstr_tuple args ->
          let jsobject_of_args = List.map
                                   ~f:(jsobject_of_type tparams) args in
          let bindings, patts, vars = Fun_or_match.map_tmp_vars
@@ -290,38 +333,44 @@ module Jsobject_of_expander = struct
                     Nonrecursive
                     bindings
                     (make_final_expr ~loc scnstr vars)
+      | Pcstr_record fields ->
+         let patt, expr = mk_rec_conv ~loc tparams fields in
+         ppat_construct ~loc lid (Some patt) -->
+           make_final_expr ~loc scnstr [expr]
 
     in
     Fun_or_match.Match (List.map ~f:item cds)
 
   (* Conversion of record types *)
-  let mk_rec_patt loc patt name =
+  and mk_rec_patt loc patt name =
     let p =
       Location.mkloc (Longident.Lident name) loc ,
       pvar ~loc ("v_" ^ name)
     in
     patt @ [p]
 
-  let jsobject_of_record ~loc tparams fields =
+  and mk_rec_conv ~loc tparams fields =
     let item (patts, exprs) = function
       | {pld_name = {txt=name; loc}; pld_type = tp; _ } as ld ->
-          let patts = mk_rec_patt loc patts name in
-          let vname = evar ~loc ("v_" ^ name) in
-          let field_name = estring ~loc (Attrs.field_name ld) in
-          let cnv = Fun_or_match.unroll
-                      ~loc vname (jsobject_of_type tparams tp) in
-          let expr =
-            [%expr
-                ([%e field_name], [%e cnv])]
-          in
-          patts, expr::exprs
+         let patts = mk_rec_patt loc patts name in
+         let vname = evar ~loc ("v_" ^ name) in
+         let field_name = estring ~loc (Attrs.field_name ld) in
+         let cnv = Fun_or_match.unroll
+                     ~loc vname (jsobject_of_type tparams tp) in
+         let expr =
+           [%expr
+               ([%e field_name], [%e cnv])]
+         in
+         patts, expr::exprs
     in
     let patts, exprs = List.fold_left ~f:item ~init:([], []) fields in
     let expr = Ast_helper.Exp.array ~loc (List.rev exprs) in
-    Fun_or_match.Match [
-        ppat_record ~loc patts Closed -->
-          [%expr make_jsobject [%e expr]]
-      ]
+    let patt = ppat_record ~loc patts Closed in
+    (patt, [%expr make_jsobject [%e expr]])
+
+  and jsobject_of_record ~loc tparams fields =
+    let patt, expr = mk_rec_conv ~loc tparams fields in
+    Fun_or_match.Match [patt --> expr]
 
   let jsobject_of_td td =
     let {ptype_name = {txt = _type_name; loc = _}; ptype_loc = loc; _} = td in
@@ -563,8 +612,25 @@ module Of_jsobject_expander = struct
     | `AsEnum -> sum_of_jsobject_as_enum ~loc cds
     | `AsTagless -> sum_of_jsobject_as_tagless ~loc tparams cds
 
+  and mk_cons ~loc tparams cd argname msg =
+    let is_constructed, tp_conv = match cd.pcd_args with
+      | Pcstr_tuple [a] ->
+         false, type_of_jsobject tparams a
+      | Pcstr_tuple _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: %s" msg
+      | Pcstr_record fields ->
+         true, record_of_jsobject ~loc ?inline_of:(Some cd) tparams fields
+    in
+    let econ = if is_constructed (* Will be wrapped with constructor in
+                                      conversion func (inlined records) *)
+               then argname
+               else (* Can be wrapped here *)
+                 econstruct cd (Some(pexp_tuple ~loc [argname]))
+    in
+    let eres = eok ~loc econ in
+    (eres, tp_conv)
+
   and sum_of_jsobject_as_tagless ~loc tparams cds =
-    let eobj, pobj = mk_ep_var ~loc "obj" in
+    let eobj, pobj = mk_ep_var ~loc "tagless_obj" in
     let inner_expr =
       let errnames = List.map
                        cds
@@ -576,31 +642,22 @@ module Of_jsobject_expander = struct
       err_var ~loc "_: neither of possible conversions applicable, possible errors " errcon
     in
     let item acc cd =
-      let tp = match cd.pcd_args with
-        | [a] -> a
-        | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: when using as_tagless, all constructors must be unary"
-      in
       let vanila_name = cd.pcd_name.txt in
       let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
       let perr = pvar ~loc ("emsg_" ^ vanila_name) in
-      let econ = eok ~loc (econstruct cd (Some(pexp_tuple ~loc [eca]))) in
-      let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
+      let error_msg = "when using as_tagless, all constructors must be unary" in
+      let eres, tp_conv = mk_cons ~loc tparams cd eca error_msg in
+      let cnv = Fun_or_match.expr ~loc tp_conv in
       [%expr
           [%e cnv] [%e eobj]
           |> (function
-              | Result.Ok([%p pca]) -> [%e econ]
+              | Result.Ok([%p pca]) -> [%e eres]
               | Result.Error([%p perr]) -> [%e acc])]
     in
     let body = List.fold_left ~init:inner_expr
                               ~f:item
-                              cds
-    in
-    let outer_expr = [%expr
-                         (fun r ->
-                           is_object r
-                           >>= (fun [%p pobj] -> [%e body]))
-                     ]
-    in
+                              cds in
+    let outer_expr = [%expr (fun [%p pobj] -> [%e body])] in
     Fun_or_match.Fun outer_expr
 
   and sum_of_jsobject_as_enum ~loc cds =
@@ -636,17 +693,14 @@ module Of_jsobject_expander = struct
       [%expr Result.Error([%e emsg])]
     in
     let item acc cd =
-      let tp = match cd.pcd_args with
-        | [a] -> a
-        | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: when using as_object, all constructors must be unary"
-      in
       let cname = (Attrs.constructor_name cd) in
       let vanila_name = cd.pcd_name.txt in
       let field_name = estring ~loc cname in
       let vname, pname = mk_ep_var ~loc ("v_" ^ vanila_name) in
       let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
-      let econ = eok ~loc (econstruct cd (Some(pexp_tuple ~loc [eca]))) in
-      let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
+      let error_msg = "when using as_object, all constructors must be unary" in
+      let eres, tp_conv = mk_cons ~loc tparams cd eca error_msg in
+      let cnv = Fun_or_match.expr ~loc tp_conv in
       [%expr
           object_get_key [%e eobj] [%e field_name]
        >>= defined_or_error
@@ -654,7 +708,7 @@ module Of_jsobject_expander = struct
            | Result.Ok([%p pname]) ->
               [%e cnv] [%e vname]
               >*= [%e mk_err_expander field_name]
-              >>= (fun [%p pca] -> [%e econ])
+              >>= (fun [%p pca] -> [%e eres])
            | Result.Error(_) ->
               [%e acc])
       ]
@@ -676,12 +730,10 @@ module Of_jsobject_expander = struct
     let item cd =
       let cname = (Attrs.constructor_name cd) in
       let pcnstr = pstring ~loc cname in
-      match cd.pcd_args with
-      | [] ->
-         (pcnstr -->
-            [%expr [%e eok ~loc (econstruct cd None)]],
-          cname)
-      | args ->
+      let conv = match cd.pcd_args with
+      | Pcstr_tuple [] ->
+         [%expr [%e eok ~loc (econstruct cd None)]]
+      | Pcstr_tuple args ->
          let fargs = List.map ~f:(type_of_jsobject tparams) args in
          let efargs = List.map ~f:(Fun_or_match.expr ~loc) fargs in
          let _, pvars, evars = Fun_or_match.map_tmp_vars ~loc fargs in
@@ -693,19 +745,28 @@ module Of_jsobject_expander = struct
             not very good, maybe generate randomized "input_vars"
             and pass them from the top?
           *)
-         let body = List.fold_right2
-                      ~init: inner_expr
-                      ~f:(fun pvar (i, fa) acc ->
-                        let ei, es = mk_index ~loc i in
-                        [%expr
-                            array_get_ind [%e earr] [%e ei]
-                         >>= [%e fa]
-                         >*= [%e mk_err_expander es]
-                         >>= (fun [%p pvar ] ->
-                           [%e acc])])
-                      pvars iefargs
-         in
-         (pcnstr --> body, cname)
+         List.fold_right2
+           ~init: inner_expr
+           ~f:(fun pvar (i, fa) acc ->
+             let ei, es = mk_index ~loc i in
+             [%expr
+                 array_get_ind [%e earr] [%e ei]
+              >>= [%e fa]
+              >*= [%e mk_err_expander es]
+              >>= (fun [%p pvar ] ->
+                [%e acc])])
+           pvars iefargs
+      | Pcstr_record fields ->
+         let ei, es = mk_index ~loc 1 in
+         let rec_conv = Fun_or_match.expr ~loc @@
+                          record_of_jsobject ~loc ?inline_of:(Some cd) tparams fields in
+         [%expr
+             array_get_ind [%e earr] [%e ei]
+             >>= [%e rec_conv]
+             >*= [%e mk_err_expander es]
+         ]
+      in
+      (pcnstr --> conv, cname)
     in
     let matches, cnames = List.split @@ List.map ~f:item cds in
     let unknown_match =
@@ -724,7 +785,7 @@ module Of_jsobject_expander = struct
                                >>= [%e match_expr]))]
     in Fun_or_match.Fun outer_expr
 
-  let mk_rec_details tparams = function
+  and mk_rec_details tparams = function
     | {pld_name = {txt=name; loc}; pld_type = tp; _ } as ld ->
        let vname, pname = mk_ep_var ~loc ("v_" ^ name) in
        let field_name = estring ~loc (Attrs.field_name ld) in
@@ -737,10 +798,16 @@ module Of_jsobject_expander = struct
        let lid = Located.lident ~loc name in
        ((lid, vname), (pname, field_name, cnv'))
 
-  let record_of_jsobject ~loc tparams fields =
+  and record_of_jsobject ~loc ?inline_of tparams fields =
     let rec_details = List.map ~f:(mk_rec_details tparams) fields in
     let lidexprs, pfc = List.split rec_details in
-    let inner_expr = eok ~loc (Ast_helper.Exp.record ~loc lidexprs None) in
+    let erec = (Ast_helper.Exp.record ~loc lidexprs None) in
+    let eres = match inline_of with (* This record is inlined, so it has to be
+                                       wrapped with constructor here *)
+      | Some cd -> econstruct cd (Some erec)
+      | None -> erec
+    in
+    let inner_expr = eok ~loc eres in
     let eobj, pobj = mk_ep_var ~loc "obj" in
     let item (pname, field_name, cnv) acc =
       [%expr
