@@ -3,7 +3,7 @@ PREFIX = $(shell opam config var prefix)
 
 build:
 	cp pkg/META.in pkg/META
-	ocaml pkg/build.ml native=false native-dynlink=false
+	ocaml pkg/build.ml native=true native-dynlink=true
 
 
 test: build

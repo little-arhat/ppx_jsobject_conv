@@ -1,4 +1,4 @@
-true: bin_annot, safe_string, debug
+true: bin_annot, safe_string, debug, warn(-58)
 
 <**/*.ml{,i}>: no_alias_deps
 # This prevents the implicit addition of -ppx options by ocamlfind
