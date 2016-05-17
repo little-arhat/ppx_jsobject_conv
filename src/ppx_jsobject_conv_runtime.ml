@@ -154,6 +154,13 @@ let list_of_jsobject a__of_jsobject obj =
         oarr
       >|= (fun l -> List.rev l))
 
+let object_get_sole_key (obj: 'a Js.t) =
+  let keys = Js.object_keys obj in
+  is_array_of_size_n keys 1
+  >*= (fun e -> "Object keys -- " ^ e)
+  >>= (fun ar -> array_get_ind ar 0)
+  >>= string_of_jsobject
+
 let array_of_jsobject a__of_jsobject obj =
   list_of_jsobject a__of_jsobject obj >|= Array.of_list
 

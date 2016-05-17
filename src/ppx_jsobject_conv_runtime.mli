@@ -1,7 +1,4 @@
 
-(* module Js : (module type of Js) *)
-(* module Result : (module type of Result) *)
-
 include module type of Js
 include module type of Result
 
@@ -51,6 +48,8 @@ val list_of_jsobject :
 val array_of_jsobject :
   ('a Js.t -> ('b, string) Result.result) ->
   'c Js.t -> ('b array, string) Result.result
+
+val object_get_sole_key : 'a Js.t -> (string, string) Result.result
 
 val jsfunction_of_jsobject :
   'a Js.t -> (jsfunction, string) Result.result

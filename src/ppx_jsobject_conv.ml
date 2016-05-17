@@ -612,7 +612,7 @@ module Of_jsobject_expander = struct
     | `AsEnum -> sum_of_jsobject_as_enum ~loc cds
     | `AsTagless -> sum_of_jsobject_as_tagless ~loc tparams cds
 
-  and mk_cons ~loc tparams cd argname msg =
+  and mk_unary_cons ~loc tparams cd argname msg =
     let is_constructed, tp_conv = match cd.pcd_args with
       | Pcstr_tuple [a] ->
          false, type_of_jsobject tparams a
@@ -639,14 +639,14 @@ module Of_jsobject_expander = struct
                          [%expr "(" ^ [%e e] ^ ")"]) in
       let errlist = elist ~loc errnames in
       let errcon = eapply ~loc [%expr String.concat "; "] [errlist] in
-      err_var ~loc "_: neither of possible conversions applicable, possible errors " errcon
+      err_var ~loc "_: neither of possible tagless conversions applicable, possible errors " errcon
     in
     let item acc cd =
       let vanila_name = cd.pcd_name.txt in
       let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
       let perr = pvar ~loc ("emsg_" ^ vanila_name) in
       let error_msg = "when using as_tagless, all constructors must be unary" in
-      let eres, tp_conv = mk_cons ~loc tparams cd eca error_msg in
+      let eres, tp_conv = mk_unary_cons ~loc tparams cd eca error_msg in
       let cnv = Fun_or_match.expr ~loc tp_conv in
       [%expr
           [%e cnv] [%e eobj]
@@ -685,42 +685,39 @@ module Of_jsobject_expander = struct
 
   and sum_of_jsobject_as_object ~loc tparams cds =
     let eobj, pobj = mk_ep_var ~loc "obj" in
-    let inner_expr =
-      let cnames = List.map ~f:Attrs.constructor_name cds in
-      let allowed = String.concat ~sep:"/" cnames in
-      let msg = Printf.sprintf "expected one of the %s in object" allowed in
-      let emsg = estring ~loc msg in
-      [%expr Result.Error([%e emsg])]
-    in
-    let item acc cd =
+    let item cd =
       let cname = (Attrs.constructor_name cd) in
-      let vanila_name = cd.pcd_name.txt in
+      let pcnstr = pstring ~loc cname in
       let field_name = estring ~loc cname in
-      let vname, pname = mk_ep_var ~loc ("v_" ^ vanila_name) in
+      let vanila_name = cd.pcd_name.txt in
       let eca, pca = mk_ep_var ~loc ("a_" ^ vanila_name) in
+      let vname, pname = mk_ep_var ~loc ("v_" ^ vanila_name) in
       let error_msg = "when using as_object, all constructors must be unary" in
-      let eres, tp_conv = mk_cons ~loc tparams cd eca error_msg in
-      let cnv = Fun_or_match.expr ~loc tp_conv in
-      [%expr
-          object_get_key [%e eobj] [%e field_name]
-       >>= defined_or_error
-       |> (function
-           | Result.Ok([%p pname]) ->
-              [%e cnv] [%e vname]
-              >*= [%e mk_err_expander field_name]
-              >>= (fun [%p pca] -> [%e eres])
-           | Result.Error(_) ->
-              [%e acc])
-      ]
+      let eres, tp_conv = mk_unary_cons ~loc tparams cd eca error_msg in
+      let conv = Fun_or_match.expr ~loc tp_conv in
+      let final_conv = [%expr
+                           object_get_key [%e eobj] [%e field_name]
+                         >>= (fun [%p pname] ->
+                              [%e conv] [%e vname]
+                              >*= [%e mk_err_expander field_name]
+                              >>= (fun [%p pca] -> [%e eres]))
+                       ]
+      in (pcnstr --> final_conv, cname)
     in
-    let body = List.fold_left ~init:inner_expr
-                              ~f:item
-                              cds
-    in
+    let matches, cnames = List.split @@ List.map ~f:item cds in
+    let unknown_match =
+      let allowed = String.concat ~sep:"/" cnames in
+      let msg = Printf.sprintf "object should contain one key of the %s, got " allowed in
+      [pvar ~loc "unknown" -->
+         err_var ~loc msg (evar ~loc "unknown")] in
+    let match_expr  = Fun_or_match.expr ~loc @@
+                        Fun_or_match.Match (matches @ unknown_match) in
     let outer_expr = [%expr
                          (fun r ->
                            is_object r
-                           >>= (fun [%p pobj] -> [%e body]))
+                           >>= (fun [%p pobj] ->
+                            object_get_sole_key [%e eobj]
+                            >>= [%e match_expr]))
                      ]
     in
     Fun_or_match.Fun outer_expr
