@@ -1,4 +1,4 @@
 B _build/**
 S src*/**
-PKG compiler-libs.common ppx_tools.metaquot ppx_type_conv ppx_core js_of_ocaml js_of_ocaml.ppx result
+PKG compiler-libs.common ppx_tools.metaquot ppx_type_conv ppx_core js_of_ocaml js_of_ocaml.ppx
 FLG -w @A

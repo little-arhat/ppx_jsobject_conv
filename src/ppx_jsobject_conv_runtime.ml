@@ -1,18 +1,15 @@
 
 open StdLabels
 
-include Js
-include Result
-
 type jsfunction = Js.Unsafe.any
 
 let map f e = match e with
   | Ok x -> Ok (f x)
-  | Error s -> Result.Error s
+  | Error s -> Error s
 
 let flat_map f e = match e with
   | Ok x -> f x
-  | Error s -> Result.Error s
+  | Error s -> Error s
 
 let map_err f e = match e with
   | Ok _ as res -> res
@@ -38,7 +35,7 @@ let string_typeof v =
   else Js.to_string tpof
 
 let type_error v expected =
-  Result.Error(Printf.sprintf "expected %s, got %s"
+  Error(Printf.sprintf "expected %s, got %s"
                               expected  (string_typeof v))
 let concat_error_messages path msg =
   if String.contains msg ':'
@@ -96,7 +93,7 @@ let object_get_key (obj: 'a Js.t) (key:string) =
 let defined_or_error obj =
   match Js.Optdef.to_option @@ Js.def obj with
   | Some(o) -> Ok(o)
-  | None -> Result.Error("expected value, got undefined")
+  | None -> Error("expected value, got undefined")
 
 let defined_or_default a__of_jsobject dflt obj =
   match Js.Optdef.to_option @@ Js.def obj with

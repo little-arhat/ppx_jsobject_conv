@@ -462,17 +462,17 @@ module Of_jsobject_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
-        [%type: Js.Unsafe.any -> ([%t ty], string) Result.result ])
+        [%type: Js.Unsafe.any -> ([%t ty], string) result ])
 
   let eok ~loc v = pexp_construct
-                     ~loc (Located.lident ~loc "Result.Ok") (Some v)
+                     ~loc (Located.lident ~loc "Ok") (Some v)
   let err_simple ~loc s = pexp_construct
-                            ~loc (Located.lident ~loc "Result.Error")
+                            ~loc (Located.lident ~loc "Error")
                             (Some (estring ~loc s))
   let err_var ~loc s var =
     let base = estring ~loc s in
     let full = [%expr [%e base] ^ [%e var]] in
-    pexp_construct ~loc (Located.lident ~loc "Result.Error") (Some full)
+    pexp_construct ~loc (Located.lident ~loc "Error") (Some full)
 
   let name_of_tdname name = match name with
     | "t" -> "of_jsobject"
@@ -651,8 +651,8 @@ module Of_jsobject_expander = struct
       [%expr
           [%e cnv] [%e eobj]
           |> (function
-              | Result.Ok([%p pca]) -> [%e eres]
-              | Result.Error([%p perr]) -> [%e acc])]
+              | Ok([%p pca]) -> [%e eres]
+              | Error([%p perr]) -> [%e acc])]
     in
     let body = List.fold_left ~init:inner_expr
                               ~f:item
