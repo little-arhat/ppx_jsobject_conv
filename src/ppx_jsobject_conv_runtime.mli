@@ -57,6 +57,7 @@ val jsany_of_jsobject : 'a Js.t -> (Js.Unsafe.any, string) result
 (* utility conversions *)
 val to_js_array : 'a list -> 'b Js.t
 val make_jsobject : (string * 'm Js.t) array -> 'a Js.t
+val make_jsobject_of_some : (string * 'm Js.t) option array -> 'a Js.t
 
 (* std convs *)
 val jsobject_of_bool : bool -> 'm Js.t

@@ -12,7 +12,7 @@ module JSON = struct
     Js.Unsafe.meth_call json "parse" [| Js.Unsafe.inject jss |]
 
   let stringify obj =
-    Js.Unsafe.meth_call json "stringify" [| obj |]
+    Js.Unsafe.meth_call json "stringify" [| Js.Unsafe.inject obj |]
 end
 
 type x = int * string * int [@@deriving jsobject]
@@ -172,6 +172,20 @@ type inlines = Inline of {inlined: int} [@@deriving jsobject]
 let show_inlines = function
   | Inline {inlined} -> Printf.sprintf "Inline {inlined=%d}" inlined
 
+type some_with_drops = {some: string option [@jsobject.drop_none]}
+                         [@@deriving jsobject]
+let show_some_with_drops sd =
+  match sd.some with
+  | Some s -> Printf.sprintf "{some=Some %s}" s
+  | None -> "{some=None}"
+type some_some = {some_some: string option}
+                   [@@deriving jsobject]
+let show_some_some sd =
+  match sd.some_some with
+  | Some s -> Printf.sprintf "{some_some=Some %s}" s
+  | None -> "{some_some=None}"
+
+
 let run_test name inp conv_func show_func =
   (* add "expected" flag or use ounit *)
   let parsed = JSON.parse inp in
@@ -256,3 +270,7 @@ let ()=
   run_test "tagless2" "{\"inlinef\":12.0, \"inlines\":\"yes\"}" tagless_of_jsobject show_tagless;
   run_test "tagless_err " "{\"enum\":\"ftwf\"}" tagless_of_jsobject show_tagless;
   run_test "inline" "[\"Inline\", {\"inlined\":12}]" inlines_of_jsobject show_inlines;
+  run_test "some_with_drops" "{\"some\": \"some\"}" some_with_drops_of_jsobject show_some_with_drops;
+  run_test "some_some" "{\"some_some\": \"some\"}" some_some_of_jsobject show_some_some;
+  Printf.printf "some_with_drops: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_with_drops {some=None});
+  Printf.printf "some_some: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_some {some_some=None});

@@ -114,6 +114,18 @@ rec_of_jsobject (JSON.parse {|{"name": "jack", "kind":null}|})
 Error("kind: expected string got null")
 ```
 
+#### [@drop_none]
+
+`[@drop_none]` allows one to skip the field of option type from the record, if it holds None value:
+
+```ocaml
+type with_drops = {field: string option [@jsobject.drop_none]} [@@deriving jsobject]
+type without_drops = {field: string option} [@@deriving jsobject]
+jsobject_of_with_drops {field = None} (* {} *)
+jsobject_of_without_drops {field = None} (* {"field": null} *)
+```
+
+
 ## Adding ppx_jsobject_conv to your project
 
 Easiest way to use `[@@deriving jsobject]` is to link againts `ppx_jsobject_conv` (`ppx_jsobject_conv`

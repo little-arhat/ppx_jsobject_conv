@@ -41,6 +41,32 @@ module Attrs = struct
     | Some(v) -> v
     | None -> ld.pld_name.txt
 
+  let drop_none =
+    Attribute.declare "jsobject.drop_none"
+      Attribute.Context.label_declaration
+      Ast_pattern.(pstr nil)
+      ()
+  let should_drop_none ld =
+    match Attribute.get drop_none ld with
+    | Some(_) ->
+       (* Some sanity check: [@drop_none] make sense only with option types *)
+       let err () = Location.raise_errorf
+                      ~loc:ld.pld_name.loc
+                      "ppx_jsobject_conv: drop_none only makes sense with fields of option type"
+       in
+       let () = match ld.pld_type.ptyp_desc with
+         | Ptyp_constr (id, _) ->
+            (match id.txt with
+             | Longident.Lident "option" -> ()
+             | Longident.Lident (_) | Longident.Ldot (_)
+               | Longident.Lapply (_) -> err ())
+         | Ptyp_tuple (_) | Ptyp_variant (_)
+           | Ptyp_object (_) | Ptyp_class (_)
+           | Ptyp_package(_) | Ptyp_any | Ptyp_var(_) | Ptyp_arrow(_)
+           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) -> err ()
+       in true
+    | None -> false
+
   let default =
     let open! Ast_pattern in
     Attribute.declare "jsobject.default"
@@ -357,16 +383,19 @@ module Jsobject_of_expander = struct
          let field_name = estring ~loc (Attrs.field_name ld) in
          let cnv = Fun_or_match.unroll
                      ~loc vname (jsobject_of_type tparams tp) in
-         let expr =
-           [%expr
-               ([%e field_name], [%e cnv])]
+         let expr = if Attrs.should_drop_none ld
+                    then [%expr (match [%e vname] with
+                                 | Some _ -> Some ([%e field_name], [%e cnv])
+                                 | None -> None)]
+                    else [%expr
+                             (Some ([%e field_name], [%e cnv]))]
          in
          patts, expr::exprs
     in
     let patts, exprs = List.fold_left ~f:item ~init:([], []) fields in
     let expr = Ast_helper.Exp.array ~loc (List.rev exprs) in
     let patt = ppat_record ~loc patts Closed in
-    (patt, [%expr make_jsobject [%e expr]])
+    (patt, [%expr make_jsobject_of_some [%e expr]])
 
   and jsobject_of_record ~loc tparams fields =
     let patt, expr = mk_rec_conv ~loc tparams fields in
@@ -431,7 +460,7 @@ module Jsobject_of = struct
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
                    Attribute.T Attrs.sum_type_as;
-                   Attribute.T Attrs.default;
+                   Attribute.T Attrs.drop_none;
                   ]
   ;;
 

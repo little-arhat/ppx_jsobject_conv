@@ -188,6 +188,16 @@ let to_js_array l =
 let make_jsobject pairs =
   Js.Unsafe.obj @@ Array.map pairs ~f:(fun (k, v)-> (k, inject v))
 
+let make_jsobject_of_some pairs =
+  let unwrap_some l = Array.of_list @@ List.rev @@
+                        Array.fold_left l ~init:[]
+                                        ~f:(fun acc i ->
+                                          match i with
+                                          | None -> acc
+                                          | Some c -> (c::acc))
+  in
+  make_jsobject @@ unwrap_some pairs
+
 let number_of_int i = Js.number_of_float @@ float_of_int i
 
 (* conversions *)
