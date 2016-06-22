@@ -126,7 +126,8 @@ let float_of_jsobject obj =
   else type_error obj "number"
 
 let string_of_jsobject obj =
-  if string_typeof obj = "string"
+  (* XXX: should we have an option for such liberal conversion? *)
+  if (string_typeof obj = "string") || (string_typeof obj = "number")
   then Ok(Js.to_string (Js.Unsafe.coerce obj))
   else type_error obj "string"
 
