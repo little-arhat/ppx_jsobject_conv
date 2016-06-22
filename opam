@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "ppx_jsobject_conv"
-version: "0.2.2-dev"
+version: "0.2.4"
 maintainer: "Roma Sokolov <sokolov.r.v@gmail.com>"
 authors: [ "Roma Sokolov <sokolov.r.v@gmail.com>" ]
 license: "MIT"
@@ -14,7 +14,7 @@ build: [
                          "native-dynlink=%{ocaml-native-dynlink}%"
 ]
 depends: [
-  "js_of_ocaml"
+  "js_of_ocaml" {>= "2.8"}
   "result"
   "ppx_type_conv" {>= "113.24.00"}
   "ppx_driver"
