@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "ppx_jsobject_conv"
-version: "0.2.4"
+version: "0.2.5"
 maintainer: "Roma Sokolov <sokolov.r.v@gmail.com>"
 authors: [ "Roma Sokolov <sokolov.r.v@gmail.com>" ]
 license: "MIT"
