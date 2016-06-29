@@ -491,7 +491,7 @@ module Of_jsobject_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
-        [%type: Js.Unsafe.any -> ([%t ty], string) result ])
+        [%type: 'a Js.t -> ([%t ty], string) result ])
 
   let eok ~loc v = pexp_construct
                      ~loc (Located.lident ~loc "Ok") (Some v)
