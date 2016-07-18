@@ -264,6 +264,7 @@ let ()=
   run_test "with_defaults2 " "{\"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults3 " "{\"def_cond\": [\"Gt\", 33], \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
   run_test "with_defaults_err " "{\"def_cond\": null, \"kind\":\"normal\"}" with_defaults_of_jsobject show_with_defaults;
+  run_test "sddw, details as int" "{\"data\": {\"details\":33}, \"ident\":\"some\", \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
   run_test "sddw " "{\"data\": {\"details\":\"fond\"}, \"ident\":\"some\", \"kind\":\"normal\"}" sddw_of_jsobject show_sddw;
   Firebug.console##log_2 (Js.string "OUTPUT: ") (jsobject_of_sddw {kind="nm"; ident="NOO";data={details="Some"}});
   run_test "tagless1" full_user tagless_of_jsobject show_tagless;

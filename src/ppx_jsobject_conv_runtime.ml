@@ -127,9 +127,12 @@ let float_of_jsobject obj =
 
 let string_of_jsobject obj =
   (* XXX: should we have an option for such liberal conversion? *)
-  if (string_typeof obj = "string") || (string_typeof obj = "number")
+  if (string_typeof obj = "string")
   then Ok(Js.to_string (Js.Unsafe.coerce obj))
-  else type_error obj "string"
+  else (if (string_typeof obj = "number")
+        then Ok(string_of_int @@ int_of_float @@
+                  Js.float_of_number @@ Js.Unsafe.coerce obj)
+        else type_error obj "string")
 
 let option_of_jsobject a__of_jsobject obj =
   match Js.Optdef.to_option @@ Js.def obj with
