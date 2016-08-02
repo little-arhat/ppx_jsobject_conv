@@ -1,7 +1,7 @@
 
 open StdLabels
 
-type jsfunction = Js.Unsafe.any
+type jsfunction = Js.Unsafe.any Js.t
 
 let map f e = match e with
   | Ok x -> Ok (f x)

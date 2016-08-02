@@ -1,5 +1,5 @@
 
-type jsfunction
+type jsfunction = Js.Unsafe.any Js.t
 
 (* error handling *)
 val (>|=) : ('a, 'b) result -> ('a -> 'c) -> ('c, 'b) result
