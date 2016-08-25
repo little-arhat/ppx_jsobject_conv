@@ -96,7 +96,7 @@ let defined_or_error obj =
   | None -> Error("expected value, got undefined")
 
 let defined_or_default a__of_jsobject dflt obj =
-  match Js.Optdef.to_option @@ Js.def obj with
+  match Js.Opt.to_option @@ Js.some obj with
   | Some(v) -> a__of_jsobject v
   | None -> Ok(dflt)
 
@@ -135,7 +135,7 @@ let string_of_jsobject obj =
         else type_error obj "string")
 
 let option_of_jsobject a__of_jsobject obj =
-  match Js.Optdef.to_option @@ Js.def obj with
+  match Js.Opt.to_option @@ Js.some obj with
   | Some(v) -> (match Js.Opt.to_option @@ Js.some v with
                 | Some(v') ->a__of_jsobject v' >|= (fun i -> Some(i))
                 | None -> Ok(None)
