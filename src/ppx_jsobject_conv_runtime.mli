@@ -11,6 +11,8 @@ val (>*=) : ('a, 'b) result -> ('b -> 'c) -> ('a, 'c) result
 
 val concat_error_messages : string -> string -> string
 
+val throw_js_error : string -> 'a
+
 (** of_jsobject *)
 (* utilities *)
 

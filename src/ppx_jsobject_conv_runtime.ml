@@ -21,6 +21,11 @@ let (>*=) e f = map_err f e
 
 let result_of_bool v er = if v then Ok(v) else Error(er)
 
+let throw_js_error msg =
+  let err = Js.Unsafe.new_obj Js.error_constr [|Js.Unsafe.inject @@
+                                                Js.string msg|] in
+  Js.raise_js_error err
+
 let string_typeof v =
   let tpof = Js.typeof v in
   if tpof = (Js.string "object")

@@ -227,6 +227,7 @@ module Jsobject_of_expander = struct
     | tn  -> "jsobject_of_" ^ tn
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
+  let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
 
   let jsobject_of_std_type (id : Longident.t Located.t) =
     let mark, txt =
@@ -402,7 +403,7 @@ module Jsobject_of_expander = struct
     Fun_or_match.Match [patt --> expr]
 
   let jsobject_of_td td =
-    let {ptype_name = {txt = _type_name; loc = _}; ptype_loc = loc; _} = td in
+    let {ptype_name = {txt = type_name; loc = _}; ptype_loc = loc; _} = td in
     let tparams = List.map td.ptype_params
                            ~f:(fun tp ->
                              let n = (get_type_param_name tp).txt in
@@ -417,7 +418,14 @@ module Jsobject_of_expander = struct
         end
       | Ptype_variant cds -> jsobject_of_sum tparams cds
       | Ptype_record fields -> jsobject_of_record ~loc tparams fields
-      | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
+      | Ptype_open ->
+         (* Create default conversion for open type*)
+         let stype_name = estring ~loc type_name in
+         Fun_or_match.Fun
+           [%expr fun _ ->
+                  throw_js_error
+                    ("ppx_jsobject_conv: Maybe a [@@deriving jsobject] is missing when extending the type " ^
+                                 [%e stype_name])]
     in
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
@@ -448,6 +456,52 @@ module Jsobject_of_expander = struct
                                   ~loc
                                   ~name:{ td.ptype_name with txt = name }
                                   ~type_:jsobject_of ~prim:[]))
+
+  let str_type_ext ~loc ~path:_ te =
+    let constructors = te.ptyext_constructors in
+    let make_cd = function
+      | {pext_kind; pext_name; pext_loc; pext_attributes } ->
+         (match pext_kind with
+          | Pext_decl (cons_args, ctyp) ->
+             {
+               pcd_name = pext_name;
+               pcd_args = cons_args;
+               pcd_res = ctyp;
+               pcd_loc = pext_loc;
+               pcd_attributes = pext_attributes;
+             }
+          | Pext_rebind _ ->
+             Location.raise_errorf ~loc "ppx_jsobject_conv: rebinds are not supported in type extensions!"
+         )
+    in
+    let cds = List.map constructors ~f:make_cd in
+    let tparams = List.map te.ptyext_params
+                           ~f:(fun tp ->
+                             let n = (get_type_param_name tp).txt in
+                             let e, p = mk_ep_var ~loc ("_of_" ^ n) in
+                             (n, (e, p))) in
+    let func_name = name_of_te te in
+    let body = jsobject_of_sum tparams cds in
+    let body' = match body with
+      | Fun_or_match.Match matchings ->
+         (* add default matching for open type: previous definition *)
+         let efunc = evar ~loc func_name in
+         let ev, pv = mk_ep_var ~loc "wildcard" in
+         let wild_match = pv -->
+                            eapply ~loc efunc [ev] in
+         pexp_function ~loc (List.append matchings [wild_match])
+      | Fun_or_match.Fun _ ->
+         Location.raise_errorf ~loc "ppx_jsobject_conv: impossible state"
+    in
+    let body'' =
+      let _, eps = List.split tparams in
+      let _, patts = List.split eps in
+      eabstract ~loc patts @@ wrap_runtime body'
+    in
+    let bindings = [constrained_function_binding ~loc ~func_name body''] in
+    [pstr_value ~loc Nonrecursive bindings]
+
+
   let core_type ty =
     jsobject_of_type [] ty |> Fun_or_match.expr ~loc:ty.ptyp_loc
 
@@ -462,20 +516,18 @@ module Jsobject_of = struct
                    Attribute.T Attrs.sum_type_as;
                    Attribute.T Attrs.drop_none;
                   ]
-  ;;
 
   let sig_type_decl =
     Type_conv.Generator.make_noarg Jsobject_of_expander.sig_type_decl
-  ;;
 
-  let extension ~loc:_ ~path:_ ctyp = Jsobject_of_expander.core_type ctyp
+  let str_type_ext =
+    Type_conv.Generator.make_noarg Jsobject_of_expander.str_type_ext
 
   let deriver =
     Type_conv.add "jsobject_of"
       ~str_type_decl
       ~sig_type_decl
-      ~extension
-  ;;
+      ~str_type_ext
 end
 
 module Of_jsobject_expander = struct
@@ -508,6 +560,7 @@ module Of_jsobject_expander = struct
     | tn  -> tn ^ "_of_jsobject"
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
+  let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
 
   let std_type_of_jsobject id =
     let mark, txt =
@@ -853,7 +906,7 @@ module Of_jsobject_expander = struct
 
 
   let td_of_jsobject td =
-    let {ptype_name = {loc = _; _}; ptype_loc = loc; _} = td in
+    let {ptype_name = {loc = _; txt = type_name}; ptype_loc = loc; _} = td in
     let is_private = (match td.ptype_private with Private -> true | Public -> false) in
     if is_private
     then Location.raise_errorf ~loc "of_jsobject is not supported for private types";
@@ -871,7 +924,13 @@ module Of_jsobject_expander = struct
         end
       | Ptype_variant cds -> sum_of_jsobject ~loc tparams cds
       | Ptype_record fields -> record_of_jsobject ~loc tparams fields
-      | Ptype_open -> Location.raise_errorf ~loc "ppx_jsobject_conv: open types are not supported"
+      | Ptype_open ->
+         let stype_name = estring ~loc type_name in
+         Fun_or_match.Fun
+           [%expr fun _ ->
+                  Error
+                    ("ppx_jsobject_conv: can't convert, maybe a [@@deriving jsobject] is missing when extending the type " ^
+                                 [%e stype_name])]
     in
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
@@ -902,6 +961,52 @@ module Of_jsobject_expander = struct
                                   ~loc
                                   ~name:{ td.ptype_name with txt = name }
                                   ~type_:of_jsobject ~prim:[]))
+
+  let str_type_ext ~loc ~path:_ te =
+    let constructors = te.ptyext_constructors in
+    let make_cd = function
+      | {pext_kind; pext_name; pext_loc; pext_attributes } ->
+         (match pext_kind with
+          | Pext_decl (cons_args, ctyp) ->
+             {
+               pcd_name = pext_name;
+               pcd_args = cons_args;
+               pcd_res = ctyp;
+               pcd_loc = pext_loc;
+               pcd_attributes = pext_attributes;
+             }
+          | Pext_rebind _ ->
+             Location.raise_errorf ~loc "ppx_jsobject_conv: rebinds are not supported in type extensions!"
+         )
+    in
+    let cds = List.map constructors ~f:make_cd in
+    let tparams = List.map te.ptyext_params
+                           ~f:(fun tp ->
+                             let n = (get_type_param_name tp).txt in
+                             let e, p = mk_ep_var ~loc ("_of_" ^ n) in
+                             (n, (e, p))) in
+    let func_name = name_of_te te in
+    let body = sum_of_jsobject ~loc tparams cds in
+    let body' = match body with
+      | Fun_or_match.Fun fun_expr ->
+         let efunc = evar ~loc func_name in
+         let previous_definition = eapply ~loc efunc [input_evar ~loc] in
+         [%expr fun [%p input_pvar ~loc] ->
+                match [%e fun_expr] [%e input_evar ~loc] with
+                | Error _ -> [%e previous_definition]
+                | asis -> asis
+         ]
+      | Fun_or_match.Match _ ->
+         Location.raise_errorf ~loc "ppx_jsobject_conv: impossible state"
+    in
+    let body'' =
+      let _, eps = List.split tparams in
+      let _, patts = List.split eps in
+      eabstract ~loc patts @@ wrap_runtime body'
+    in
+    let bindings = [constrained_function_binding ~loc ~func_name body''] in
+    [pstr_value ~loc Nonrecursive bindings]
+
   let core_type ty =
     (* Conserned about empty type_name *)
     type_of_jsobject [] ty |> Fun_or_match.expr ~loc:ty.ptyp_loc
@@ -917,20 +1022,18 @@ module Of_jsobject = struct
                    Attribute.T Attrs.sum_type_as;
                    Attribute.T Attrs.default;
                   ]
-  ;;
 
   let sig_type_decl =
     Type_conv.Generator.make_noarg Of_jsobject_expander.sig_type_decl
-  ;;
 
-  let extension ~loc:_ ~path:_ ctyp = Of_jsobject_expander.core_type ctyp
+  let str_type_ext =
+    Type_conv.Generator.make_noarg Of_jsobject_expander.str_type_ext
 
   let deriver =
     Type_conv.add "of_jsobject"
       ~str_type_decl
       ~sig_type_decl
-      ~extension
-  ;;
+      ~str_type_ext
 end
 
 
