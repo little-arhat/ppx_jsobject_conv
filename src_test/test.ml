@@ -195,6 +195,17 @@ let run_test name inp conv_func show_func =
   | Error(msg) ->
      Printf.printf "ERR [%s]: %s --> %s\n" name inp msg
 
+module ForOpen = struct
+  type open_type = .. [@@deriving jsobject]
+end
+open ForOpen
+type open_type += Var1 [@@deriving jsobject]
+type open_type += Var2 [@@deriving jsobject]
+let show_open_type = function
+  | Var1 -> "Var1"
+  | Var2 -> "Var2"
+  | _ -> failwith "forgotten type extensions"
+
 let ()=
   let anoop = {acarry=Js.Unsafe.obj [|("test", Js.Unsafe.inject Js.null)|]; aident="ident"} in
   let aobj = jsobject_of_anoop anoop in
@@ -273,5 +284,7 @@ let ()=
   run_test "inline" "[\"Inline\", {\"inlined\":12}]" inlines_of_jsobject show_inlines;
   run_test "some_with_drops" "{\"some\": \"some\"}" some_with_drops_of_jsobject show_some_with_drops;
   run_test "some_some" "{\"some_some\": \"some\"}" some_some_of_jsobject show_some_some;
+  run_test "open_type" "[\"Var1\"]" open_type_of_jsobject show_open_type;
+  run_test "open_type" "[\"Var3\"]" open_type_of_jsobject show_open_type;
   Printf.printf "some_with_drops: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_with_drops {some=None});
   Printf.printf "some_some: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_some {some_some=None});
