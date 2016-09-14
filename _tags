@@ -27,3 +27,4 @@ true: bin_annot, safe_string, debug, warn(-58)
 <ppx_type_conv>: -traverse
 <ppx_variants_conv>: -traverse
 <ppx_core>: -traverse
+<ppx_deriving_yojson>: -traverse
