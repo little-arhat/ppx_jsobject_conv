@@ -14,8 +14,29 @@ let wrap_runtime decls =
 
 let mk_ep_var ~loc n = evar ~loc n, pvar ~loc n
 
-let input_evar ~loc= evar ~loc "v"
-let input_pvar ~loc= pvar ~loc "v"
+let input_evar ~loc = evar ~loc "v"
+let input_pvar ~loc = pvar ~loc "v"
+
+let unref ~loc var =
+  let u = evar ~loc "!" in
+  eapply ~loc u [var]
+
+let unref_apply ~loc var args =
+  let unref_var = unref ~loc var in
+  eapply ~loc unref_var args
+
+let ref_ ~loc var =
+  let r = evar ~loc "ref" in
+  eapply ~loc r [var]
+
+let mk_recent core =
+  core ^ "_most_recent"
+
+let mk_recent_ep_var ~loc core =
+  mk_ep_var ~loc (mk_recent core)
+
+let mk_default core =
+  core ^ "_default"
 
 module Attrs = struct
   let name =
@@ -164,6 +185,10 @@ let type_is_recursive_repl short_circuit type_names =
   object(self)
     inherit Ast_traverse.iter as super
 
+    method! type_declaration td =
+      (match td.ptype_kind with
+      | Ptype_open -> raise_notrace Stop
+      | _ -> super#type_declaration td) [@ocaml.warning "-4"]
 
     method! core_type ctyp =
       match short_circuit ctyp with
@@ -194,7 +219,7 @@ let types_are_recursive_repl ?(stop_on_functions = true)
     if stop_on_functions then
       fun ty ->
       (match ty.ptyp_desc with
-      | Ptyp_arrow _ -> Some false
+       | Ptyp_arrow _ -> Some false
       | _ -> short_circuit ty) [@ocaml.warning "-4"]
     else short_circuit
   in
@@ -212,15 +237,26 @@ let really_recursive rec_flag tds =
 
 let constrained_function_binding = fun
   (* placing a suitably polymorphic or rigid type constraint on the pattern or body *)
-  ~(loc:Location.t) ~(func_name:string) (body:expression) ->
-  let pat = pvar ~loc func_name in
+    ~(loc:Location.t) ?constraint_
+    ~(func_name:string) (body:expression) ->
+  let pre_pat = pvar ~loc func_name in
+  let pat = match constraint_ with
+    | Some ct -> ppat_constraint ~loc pre_pat ct
+    | None -> pre_pat
+  in
   value_binding ~loc ~pat ~expr:body
 
 module Jsobject_of_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
-        [%type: [%t ty] -> 'm Js.t])
+        [%type: [%t ty] -> Js.Unsafe.any Js.t])
+
+  let mk_ref_type td =
+    combinator_type_of_type_declaration
+      td ~f:(fun ~loc:_ ty ->
+        [%type: ([%t ty] -> Js.Unsafe.any Js.t) ref])
+
 
   let name_of_tdname name = match name with
     | "t" -> "jsobject_of"
@@ -228,6 +264,14 @@ module Jsobject_of_expander = struct
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
   let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
+  let full_name_of_te te =
+    let names = List.rev @@ Longident.flatten te.ptyext_path.txt in
+    match names with
+    | [] -> Location.raise_errorf "name_of_te: assert"
+    | (fn::rest) ->
+       let func_name = name_of_tdname fn in
+       let names' = List.rev (func_name::rest) in
+       String.concat ~sep:"." names'
 
   let jsobject_of_std_type (id : Longident.t Located.t) =
     let mark, txt =
@@ -409,36 +453,56 @@ module Jsobject_of_expander = struct
                              let n = (get_type_param_name tp).txt in
                              let e, p = mk_ep_var ~loc ("_of_" ^ n) in
                              (n, (e, p))) in
-    let body =
+    let func_name = name_of_td td in
+    let body, sitems =
       match td.ptype_kind with
       | Ptype_abstract -> begin
           match td.ptype_manifest with
-          | Some ty -> jsobject_of_type tparams ty
+          | Some ty -> jsobject_of_type tparams ty, []
           | None -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
-      | Ptype_variant cds -> jsobject_of_sum tparams cds
-      | Ptype_record fields -> jsobject_of_record ~loc tparams fields
+      | Ptype_variant cds -> jsobject_of_sum tparams cds, []
+      | Ptype_record fields -> jsobject_of_record ~loc tparams fields, []
       | Ptype_open ->
          (* Create default conversion for open type*)
          let stype_name = estring ~loc type_name in
-         Fun_or_match.Fun
+         let default_name = mk_default func_name in
+         let recent_evar, recent_pvar = mk_recent_ep_var ~loc func_name in
+         let default_func_body =
            [%expr fun _ ->
                   throw_js_error
                     ("ppx_jsobject_conv: Maybe a [@@deriving jsobject] is missing when extending the type " ^
-                                 [%e stype_name])]
+                       [%e stype_name])
+           ] in
+         let default_func =
+           let _, eps = List.split tparams in
+           let _, patts = List.split eps in
+           let fb = eabstract ~loc patts @@ wrap_runtime default_func_body in
+           let constraint_ = mk_type td in
+           constrained_function_binding ~loc ~constraint_
+                                        ~func_name:default_name fb
+         in
+         let most_recent =
+           let expr = ref_ ~loc (evar ~loc default_name) in
+           value_binding ~loc ~pat:recent_pvar ~expr
+         in
+         let body =
+           let ei, pi = mk_ep_var ~loc "i" in
+           let application = unref_apply ~loc recent_evar [ei] in
+           Fun_or_match.Match [pi --> application] in
+         body, [default_func; most_recent]
     in
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
                                             [%e fun_expr] [%e input_evar ~loc]]
       | Fun_or_match.Match matchings -> pexp_function ~loc matchings
     in
-    let func_name = name_of_td td in
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
-    [constrained_function_binding ~loc ~func_name body'']
+    List.append sitems [constrained_function_binding ~loc ~func_name body'']
 
 
   let str_type_decl ~loc ~path:_ (rec_flag, tds) =
@@ -447,15 +511,40 @@ module Jsobject_of_expander = struct
     [pstr_value ~loc rec_flag bindings]
 
   let sig_type_decl ~loc:_ ~path:_ (_rf, tds) =
-    List.map tds
-             ~f:(fun td ->
-               let jsobject_of = mk_type td in
-               let name = name_of_td td in
-               let loc = td.ptype_loc in
-               psig_value ~loc (value_description
-                                  ~loc
-                                  ~name:{ td.ptype_name with txt = name }
-                                  ~type_:jsobject_of ~prim:[]))
+    List.concat
+    @@ List.map
+         tds
+         ~f:(fun td ->
+           let type_ = mk_type td in
+           let func_name = name_of_td td in
+           let loc = td.ptype_loc in
+           let type_func = psig_value ~loc
+                                      (value_description
+                                         ~loc
+                                         ~name:{ td.ptype_name
+                                               with txt = func_name }
+                                         ~type_ ~prim:[]) in
+           match td.ptype_kind with
+           | Ptype_open ->
+              let default_name = { td.ptype_name with
+                                   txt = mk_default func_name } in
+              let default_sig = psig_value ~loc
+                                           (value_description
+                                              ~loc
+                                              ~name:default_name
+                                              ~type_
+                                              ~prim:[]) in
+              let recent_name = { td.ptype_name with
+                                  txt = mk_recent func_name } in
+              let ref_sig = psig_value ~loc
+                                       (value_description
+                                          ~loc
+                                          ~name:recent_name
+                                          ~type_:(mk_ref_type td)
+                                          ~prim:[]) in
+              [default_sig; ref_sig; type_func]
+           | Ptype_abstract | Ptype_variant _ | Ptype_record _ ->
+              [type_func])
 
   let str_type_ext ~loc ~path:_ te =
     let constructors = te.ptyext_constructors in
@@ -481,14 +570,17 @@ module Jsobject_of_expander = struct
                              let e, p = mk_ep_var ~loc ("_of_" ^ n) in
                              (n, (e, p))) in
     let func_name = name_of_te te in
+    let previous_evar, previous_pvar = mk_ep_var ~loc
+                                       @@ func_name ^ "_previous" in
+    (* body of function, responsible for converting newly introduced
+       variant constructors; unknown constructors will be redirected
+       to previously defined function *)
     let body = jsobject_of_sum tparams cds in
     let body' = match body with
       | Fun_or_match.Match matchings ->
-         (* add default matching for open type: previous definition *)
-         let efunc = evar ~loc func_name in
          let ev, pv = mk_ep_var ~loc "wildcard" in
          let wild_match = pv -->
-                            eapply ~loc efunc [ev] in
+                            eapply ~loc previous_evar [ev] in
          pexp_function ~loc (List.append matchings [wild_match])
       | Fun_or_match.Fun _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: impossible state"
@@ -498,9 +590,28 @@ module Jsobject_of_expander = struct
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
-    let bindings = [constrained_function_binding ~loc ~func_name body''] in
-    [pstr_value ~loc Nonrecursive bindings]
-
+    (* statement for saving previously defined function: it is used in
+       wildcard pattern above *)
+    let recent_evar, _recent_pvar = mk_recent_ep_var ~loc
+                                   @@ full_name_of_te te in
+    let previous_body =
+      let expr = unref ~loc recent_evar in
+      value_binding ~loc ~pat:previous_pvar ~expr
+    in
+    (* update most recent definition with our function *)
+    let recent_body =
+      let pat = punit ~loc in
+      let assign_var = evar ~loc ":=" in
+      let efunc = evar ~loc func_name in
+      let expr = eapply ~loc assign_var [recent_evar; efunc] in
+      value_binding ~loc ~pat ~expr
+    in
+    let rec_bindings = [
+        previous_body;
+        constrained_function_binding ~loc ~func_name body''] in
+    let bindings = [recent_body] in
+    [pstr_value ~loc Recursive rec_bindings;
+     pstr_value ~loc Nonrecursive bindings]
 
   let core_type ty =
     jsobject_of_type [] ty |> Fun_or_match.expr ~loc:ty.ptyp_loc
@@ -543,7 +654,12 @@ module Of_jsobject_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc:_ ty ->
-        [%type: 'a Js.t -> ([%t ty], string) result ])
+        [%type: Js.Unsafe.any Js.t -> ([%t ty], string) result ])
+
+  let mk_ref_type td =
+    combinator_type_of_type_declaration
+      td ~f:(fun ~loc:_ ty ->
+        [%type: (Js.Unsafe.any Js.t -> ([%t ty], string) result) ref ])
 
   let eok ~loc v = pexp_construct
                      ~loc (Located.lident ~loc "Ok") (Some v)
@@ -561,6 +677,14 @@ module Of_jsobject_expander = struct
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
   let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
+  let full_name_of_te te =
+    let names = List.rev @@ Longident.flatten te.ptyext_path.txt in
+    match names with
+    | [] -> Location.raise_errorf "name_of_te: assert"
+    | (fn::rest) ->
+       let func_name = name_of_tdname fn in
+       let names' = List.rev (func_name::rest) in
+       String.concat ~sep:"." names'
 
   let std_type_of_jsobject id =
     let mark, txt =
@@ -915,35 +1039,54 @@ module Of_jsobject_expander = struct
                              let n = (get_type_param_name tp).txt in
                              let e, p = mk_ep_var ~loc ("_of_" ^ n) in
                              (n, (e, p))) in
-    let body =
+    let func_name = name_of_td td in
+    let body, sitems =
       match td.ptype_kind with
       | Ptype_abstract -> begin
           match td.ptype_manifest with
-          | Some ty -> type_of_jsobject tparams ty
+          | Some ty -> type_of_jsobject tparams ty, []
           | _ -> Location.raise_errorf ~loc "ppx_jsobject_conv: fully abstract types are not supported"
         end
-      | Ptype_variant cds -> sum_of_jsobject ~loc tparams cds
-      | Ptype_record fields -> record_of_jsobject ~loc tparams fields
+      | Ptype_variant cds -> sum_of_jsobject ~loc tparams cds, []
+      | Ptype_record fields -> record_of_jsobject ~loc tparams fields, []
       | Ptype_open ->
          let stype_name = estring ~loc type_name in
-         Fun_or_match.Fun
+         let default_name = mk_default func_name in
+         let recent_evar, recent_pvar = mk_recent_ep_var ~loc func_name in
+         let default_func_body =
            [%expr fun _ ->
                   Error
                     ("ppx_jsobject_conv: can't convert, maybe a [@@deriving jsobject] is missing when extending the type " ^
-                                 [%e stype_name])]
+                       [%e stype_name])] in
+         let default_func =
+           let _, eps = List.split tparams in
+           let _, patts = List.split eps in
+           let fb = eabstract ~loc patts @@ wrap_runtime default_func_body in
+           let constraint_ = mk_type td in
+           constrained_function_binding ~loc ~constraint_
+                                        ~func_name:default_name fb
+         in
+         let most_recent =
+           let expr = ref_ ~loc (evar ~loc default_name) in
+           value_binding ~loc ~pat:recent_pvar ~expr
+         in
+         let body =
+           let ei, pi = mk_ep_var ~loc "i" in
+           let application = unref_apply ~loc recent_evar [ei] in
+           Fun_or_match.Match [pi --> application] in
+         body, [default_func; most_recent]
     in
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
                                             [%e fun_expr] [%e input_evar ~loc]]
       | Fun_or_match.Match matchings -> pexp_function ~loc matchings
     in
-    let func_name = name_of_td td in
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
-    [constrained_function_binding ~loc ~func_name body'']
+    List.append sitems [constrained_function_binding ~loc ~func_name body'']
 
   let str_type_decl ~loc ~path:_ (rec_flag, tds) =
     let rec_flag = really_recursive rec_flag tds in
@@ -952,15 +1095,40 @@ module Of_jsobject_expander = struct
 
 
   let sig_type_decl ~loc:_ ~path:_ (_rf, tds) =
-    List.map tds
-             ~f:(fun td ->
-               let of_jsobject = mk_type td in
-               let name = name_of_td td in
-               let loc = td.ptype_loc in
-               psig_value ~loc (value_description
-                                  ~loc
-                                  ~name:{ td.ptype_name with txt = name }
-                                  ~type_:of_jsobject ~prim:[]))
+    List.concat
+    @@ List.map
+         tds
+         ~f:(fun td ->
+           let type_ = mk_type td in
+           let func_name = name_of_td td in
+           let loc = td.ptype_loc in
+           let type_func = psig_value ~loc
+                                      (value_description
+                                         ~loc ~name:{ td.ptype_name
+                                                    with txt = func_name }
+                                         ~type_ ~prim:[]) in
+           match td.ptype_kind with
+           | Ptype_open ->
+              let default_name = { td.ptype_name with
+                                   txt = mk_default func_name } in
+              let default_sig = psig_value ~loc
+                                           (value_description
+                                              ~loc
+                                              ~name:default_name
+                                              ~type_
+                                              ~prim:[]) in
+              let recent_name = { td.ptype_name with
+                                  txt = mk_recent func_name } in
+              let ref_sig = psig_value ~loc
+                                       (value_description
+                                          ~loc
+                                          ~name:recent_name
+                                          ~type_:(mk_ref_type td)
+                                          ~prim:[]) in
+              [default_sig; ref_sig; type_func]
+           | Ptype_abstract | Ptype_variant _ | Ptype_record _ ->
+              [type_func])
+
 
   let str_type_ext ~loc ~path:_ te =
     let constructors = te.ptyext_constructors in
@@ -986,11 +1154,15 @@ module Of_jsobject_expander = struct
                              let e, p = mk_ep_var ~loc ("_of_" ^ n) in
                              (n, (e, p))) in
     let func_name = name_of_te te in
+    let previous_evar, previous_pvar = mk_ep_var ~loc
+                                       @@ func_name ^ "_previous" in
     let body = sum_of_jsobject ~loc tparams cds in
+    (* body of function, responsible for converting newly introduced
+       variant constructors; unknown constructors will be redirected
+       to previously defined function *)
     let body' = match body with
       | Fun_or_match.Fun fun_expr ->
-         let efunc = evar ~loc func_name in
-         let previous_definition = eapply ~loc efunc [input_evar ~loc] in
+         let previous_definition = eapply ~loc previous_evar [input_evar ~loc] in
          [%expr fun [%p input_pvar ~loc] ->
                 match [%e fun_expr] [%e input_evar ~loc] with
                 | Error _ -> [%e previous_definition]
@@ -1004,8 +1176,28 @@ module Of_jsobject_expander = struct
       let _, patts = List.split eps in
       eabstract ~loc patts @@ wrap_runtime body'
     in
-    let bindings = [constrained_function_binding ~loc ~func_name body''] in
-    [pstr_value ~loc Nonrecursive bindings]
+    (* statement for saving previously defined function: it is used in
+       wildcard pattern above *)
+    let recent_evar, _recent_pvar = mk_recent_ep_var ~loc
+                                   @@ full_name_of_te te in
+    let previous_body =
+      let expr = unref ~loc recent_evar in
+      value_binding ~loc ~pat:previous_pvar ~expr
+    in
+    (* update most recent definition with our function *)
+    let recent_body =
+      let pat = punit ~loc in
+      let assign_var = evar ~loc ":=" in
+      let efunc = evar ~loc func_name in
+      let expr = eapply ~loc assign_var [recent_evar; efunc] in
+      value_binding ~loc ~pat ~expr
+    in
+    let rec_bindings = [
+        previous_body;
+        constrained_function_binding ~loc ~func_name body''] in
+    let bindings = [recent_body] in
+    [pstr_value ~loc Recursive rec_bindings;
+     pstr_value ~loc Nonrecursive bindings]
 
   let core_type ty =
     (* Conserned about empty type_name *)
