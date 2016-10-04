@@ -36,7 +36,7 @@ type user = {
 
 ```
 
-This will generate functions `Stuff.of_jsobject/Stuff.jsobject_of`, `statls_of_jsobject/jsobject_of_status`, `user_of_jsobject/jsobject_of_user`.
+This will generate functions `Stuff.of_jsobject/Stuff.jsobject_of`, `status_of_jsobject/jsobject_of_status`, `user_of_jsobject/jsobject_of_user`.
 
 ### More details
 
