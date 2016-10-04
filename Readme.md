@@ -12,7 +12,7 @@ MIT License.
 
 ## Installation
 
-`opam install ppx_jsobject_conv=0.0.1`
+`opam install ppx_jsobject_conv`
 
 ## Example usage
 
