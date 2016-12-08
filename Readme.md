@@ -44,7 +44,7 @@ Given `type t = ... [@@deriving jsobject]`, signatures for functions will be:
 
 ```ocaml
 val jsobject_of : t -> 'a Js.t
-val of_jsobject : 'a Js.t -> (t, string) Result.result
+val of_jsobject : 'a Js.t -> (t, string) result
 ```
 
 One can derive only one function from the pair using `[@@deriving jsobject_of]` or `[@@deriving of_jsobject]`, and define complementary function manually,
@@ -54,7 +54,7 @@ For types named `t` generated functions have names without any prefixes, otherwi
 
 ### Error reporting
 
-If conversion from JS type to OCaml was unsuccessful, `Error` constructor of `Result.result` type will be returned with the description of error.
+If conversion from JS type to OCaml was unsuccessful, `Error` constructor of `result` type will be returned with the description of error.
 If error happened somewhere deep in the structure, error description will have prefix with path to errorneus field: `message.1.query.condition.0`.
 
 ### Options
