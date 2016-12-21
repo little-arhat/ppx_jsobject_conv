@@ -30,7 +30,7 @@ val object_get_key :
 val defined_or_error : 'a -> ('a, string) result
 val defined_or_default : ('a -> ('b, 'c) result)
                          -> 'b -> 'a -> ('b, 'c) result
-
+val convert_or_default : ('a -> ('b, 'c) result) -> 'b -> 'a -> ('b, 'd) result
 
 (* std convs *)
 

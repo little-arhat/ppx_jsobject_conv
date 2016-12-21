@@ -88,12 +88,29 @@ module Attrs = struct
        in true
     | None -> false
 
+  let default_on_error =
+    let open! Ast_pattern in
+    Attribute.declare "jsobject.default_on_error"
+                      Attribute.Context.label_declaration
+                      (Ast_pattern.pstr (pstr_eval __ nil ^:: nil))
+                      (fun x -> x)
+
   let default =
     let open! Ast_pattern in
     Attribute.declare "jsobject.default"
-      Attribute.Context.label_declaration
-      (Ast_pattern.pstr (pstr_eval __ nil ^:: nil))
-      (fun x -> x)
+                      Attribute.Context.label_declaration
+                      (Ast_pattern.pstr (pstr_eval __ nil ^:: nil))
+                      (fun x -> x)
+
+  let error_default ld =
+    match (Attribute.get default_on_error ld), (Attribute.get default ld) with
+    | Some _, Some _ ->
+       Location.raise_errorf
+         ~loc:ld.pld_name.loc "ppx_jsobject_conv: default_on_error and default attrs can't be used together"
+    | Some _ as v, _ ->
+       v
+    | None, _ -> None
+
   let field_default ld =
     match Attribute.get default ld with
     | Some(_) as v ->
@@ -993,10 +1010,16 @@ module Of_jsobject_expander = struct
        let vname, pname = mk_ep_var ~loc ("v_" ^ name) in
        let field_name = estring ~loc (Attrs.field_name ld) in
        let cnv = Fun_or_match.expr ~loc (type_of_jsobject tparams tp) in
-       let cnv' = match Attrs.field_default ld with
-         | Some(v) ->
+       let cnv' = match Attrs.field_default ld, Attrs.error_default ld with
+         | Some _, Some _ ->
+            (* this should be handled during attrs parsing *)
+            Location.raise_errorf
+              ~loc "ppx_jsobject_conv: default_on_error and default attrs can't be used together"
+         | Some v, None ->
             [%expr defined_or_default [%e cnv] [%e v]]
-         | None -> cnv
+         | None, Some v ->
+            [%expr convert_or_default [%e cnv] [%e v]]
+         | None, None -> cnv
        in
        let lid = Located.lident ~loc name in
        ((lid, vname), (pname, field_name, cnv'))
@@ -1213,6 +1236,7 @@ module Of_jsobject = struct
                    Attribute.T Attrs.key;
                    Attribute.T Attrs.sum_type_as;
                    Attribute.T Attrs.default;
+                   Attribute.T Attrs.default_on_error;
                   ]
 
   let sig_type_decl =

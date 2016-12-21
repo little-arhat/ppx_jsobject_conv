@@ -105,6 +105,11 @@ let defined_or_default a__of_jsobject dflt obj =
   | Some(v) -> a__of_jsobject v
   | None -> Ok(dflt)
 
+let convert_or_default a__of__jsobject default obj =
+  match a__of__jsobject obj with
+  | Error _ -> Ok default
+  | Ok _ as ok -> ok
+
 (* conversion *)
 let bool_of_jsobject obj =
   if string_typeof obj = "boolean"

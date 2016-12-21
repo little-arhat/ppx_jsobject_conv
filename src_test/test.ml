@@ -114,6 +114,15 @@ let show_with_defaults = function
   | {def_cond; enabled; kind} -> Printf.sprintf "{def_cond=%s;enabled=%b;kind=%s}"
                                        (show_condition def_cond) enabled kind
 
+type err_default = {something: float [@jsobject.default_on_error 0.0];
+                    query: query option [@jsobject.default_on_error None]
+                   } [@@deriving jsobject]
+let show_err_default = function
+  | {something; query=Some query} ->
+     Printf.sprintf "{something=%f; query=Some %s}" something (show_query query)
+  | {something; query=None} ->
+     Printf.sprintf "{something=%f; query=None}" something
+
 let show_user = function
   | {age;name;status} ->
      Printf.sprintf "{age=%d;name=%s;status=%s}" age name (show_status status)
@@ -285,5 +294,9 @@ let ()=
   run_test "some_some" "{\"some_some\": \"some\"}" some_some_of_jsobject show_some_some;
   run_test "open_type" "[\"OpV1\"]" ForOpen.open_type_of_jsobject show_open_type;
   run_test "open_type" "[\"OpV3\"]" ForOpen.open_type_of_jsobject show_open_type;
+
+  run_test "err_default1" "{\"something\": \"fff\", \"query\":{}}" err_default_of_jsobject show_err_default;
+  run_test "err_default1" "{\"something\": 2.3, \"query\":{\"amount\":33.0, \"condition\":[\"Lt\", 30]}}" err_default_of_jsobject show_err_default;
+
   Printf.printf "some_with_drops: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_with_drops {some=None});
   Printf.printf "some_some: %s\n" (Js.to_string @@ JSON.stringify @@ jsobject_of_some_some {some_some=None});
