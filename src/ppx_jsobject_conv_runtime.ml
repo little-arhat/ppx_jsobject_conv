@@ -162,8 +162,7 @@ let list_of_jsobject a__of_jsobject obj =
           >*= (fun emsg -> concat_error_messages (string_of_int i) emsg)
           >|= (fun oel -> oel::l))
         ~init:[]
-        oarr
-      >|= (fun l -> List.rev l))
+        oarr)
 
 let object_get_sole_key (obj: 'a Js.t) =
   let keys = Js.object_keys obj in
