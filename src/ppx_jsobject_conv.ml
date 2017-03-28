@@ -1,9 +1,10 @@
 module L = List
 open StdLabels
 
-open Ppx_core.Std
+module OrigLocation = Location
+open Ppx_core.Light
 open Asttypes
-open Parsetree
+(* open Parsetree *)
 open Ast_builder.Default
 module Type_conv = Ppx_type_conv.Std.Type_conv
 
@@ -280,9 +281,9 @@ module Jsobject_of_expander = struct
     | tn  -> "jsobject_of_" ^ tn
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
-  let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
+  let name_of_te te = name_of_tdname @@ Longident.last_exn te.ptyext_path.txt
   let full_name_of_te te =
-    let names = List.rev @@ Longident.flatten te.ptyext_path.txt in
+    let names = List.rev @@ Longident.flatten_exn te.ptyext_path.txt in
     match names with
     | [] -> Location.raise_errorf "name_of_te: assert"
     | (fn::rest) ->
@@ -432,7 +433,7 @@ module Jsobject_of_expander = struct
   (* Conversion of record types *)
   and mk_rec_patt loc patt name =
     let p =
-      Location.mkloc (Longident.Lident name) loc ,
+      OrigLocation.mkloc (Longident.Lident name) loc ,
       pvar ~loc ("v_" ^ name)
     in
     patt @ [p]
@@ -693,9 +694,9 @@ module Of_jsobject_expander = struct
     | tn  -> tn ^ "_of_jsobject"
 
   let name_of_td td = name_of_tdname td.ptype_name.txt
-  let name_of_te te = name_of_tdname @@ Longident.last te.ptyext_path.txt
+  let name_of_te te = name_of_tdname @@ Longident.last_exn te.ptyext_path.txt
   let full_name_of_te te =
-    let names = List.rev @@ Longident.flatten te.ptyext_path.txt in
+    let names = List.rev @@ Longident.flatten_exn te.ptyext_path.txt in
     match names with
     | [] -> Location.raise_errorf "name_of_te: assert"
     | (fn::rest) ->
