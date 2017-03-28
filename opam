@@ -15,7 +15,7 @@ build: [
 ]
 depends: [
   "js_of_ocaml" {>= "2.8"}
-  "ppx_type_conv" {>= "114.35+03"}
+  "ppx_type_conv" {>= "v0.9.0"}
   "ppx_driver"
   "ppx_core"
   "ocamlfind"    {build}
