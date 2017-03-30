@@ -1,5 +1,6 @@
 NAME := ppx_jsobject_conv
 PREFIX = $(shell opam config var prefix)
+TEST_CMD := node
 
 build:
 	cp pkg/META.in pkg/META
@@ -8,11 +9,9 @@ build:
 
 test: build
 	rm -rf _build/src_test/
-	ocamlbuild -j 0 -use-ocamlfind -classic-display \
-						 src_test/test.byte
-	js_of_ocaml --noinline --opt=1 ./_build/src_test/test.byte -o _build/src_test/test.js
-	ln -s _build/src_test/test.js test.js
-	node test.js
+	ocaml pkg/build_tests.ml native=false native-dynlink=false
+	js_of_ocaml $(JSOO_OPTS) +js_of_ocaml/weak.js test.byte -o test.js
+	$(TEST_CMD) test.js
 
 $(NAME).install:
 	$(MAKE) build

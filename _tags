@@ -16,7 +16,7 @@ true: bin_annot, safe_string, debug, warn(-58)
 <src/ppx_jsobject_conv_runtime.ml{,i}>: package(js_of_ocaml)
 
 <src_test/*>:  warn(@5@8@10@11@12@14@23@24@26@29@40)
-<src_test/*.{ml,byte,native}>: debug, package(js_of_ocaml), package(js_of_ocaml.ppx), use_ppx_jsobject_conv
+<src_test/*.{ml,byte,native}>: debug, package(webtest, webtest.js), package(js_of_ocaml, js_of_ocaml.ppx), use_ppx_jsobject_conv
 
 ".git": -traverse
 ".git": not_hygienic
