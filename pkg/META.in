@@ -1,4 +1,4 @@
-version = "${version}%"
+version = "%${version}%"
 description = "Generate jsobject to use with Js_of_ocaml from type definitions"
 requires = "ppx_deriving"
 requires(ppx_driver) += "ppx_core ppx_type_conv"
