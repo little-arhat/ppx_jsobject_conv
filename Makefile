@@ -3,9 +3,8 @@ PREFIX = $(shell opam config var prefix)
 TEST_CMD := node
 
 build:
-	cp pkg/META.in pkg/META
+	opam config subst pkg/META
 	ocaml pkg/build.ml native=true native-dynlink=true
-
 
 test: build
 	rm -rf _build/src_test/
