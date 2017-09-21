@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "ppx_jsobject_conv"
-version: "0.4.3"
+version: "0.4.4"
 maintainer: "Roma Sokolov <sokolov.r.v@gmail.com>"
 authors: [ "Roma Sokolov <sokolov.r.v@gmail.com>" ]
 license: "MIT"
@@ -10,8 +10,8 @@ dev-repo: "git://github.com/little-arhat/ppx_jsobject_conv.git"
 tags: [ "syntax" "jsoo" "javascript" ]
 substs: [ "pkg/META" ]
 build: [
-  "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"
-                         "native-dynlink=%{ocaml-native-dynlink}%"
+       "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"
+                              "native-dynlink=%{ocaml-native-dynlink}%"
 ]
 depends: [
   "js_of_ocaml" {>= "2.8"}
