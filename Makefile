@@ -3,23 +3,18 @@ PREFIX = $(shell opam config var prefix)
 TEST_CMD := node
 
 build:
-	opam config subst pkg/META
-	ocaml pkg/build.ml native=true native-dynlink=true
+	jbuilder build
 
-test: build
-	rm -rf _build/src_test/
-	ocaml pkg/build_tests.ml native=false native-dynlink=false
-	js_of_ocaml $(JSOO_OPTS) +js_of_ocaml/weak.js test.byte -o test.js
-	$(TEST_CMD) test.js
+test:
+	jbuilder runtest
 
 $(NAME).install:
 	$(MAKE) build
 
 clean:
-	ocamlbuild -clean
+	jbuilder clean
 	rm -f $(NAME).install
-	rm -f pkg/META
-	rm -f test.js
+	rm -f $(NAME)-tests.install
 
 install: $(NAME).install
 	opam-installer -i --prefix $(PREFIX) $(NAME).install

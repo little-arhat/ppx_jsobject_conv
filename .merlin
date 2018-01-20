@@ -1,4 +1,5 @@
 B _build/**
 S src*/**
+S bin/**
 PKG compiler-libs.common ppx_tools.metaquot ppx_type_conv ppx_core js_of_ocaml js_of_ocaml.ppx webtest webtest.js
 FLG -w @A

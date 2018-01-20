@@ -10,8 +10,8 @@ module Type_conv = Ppx_type_conv.Std.Type_conv
 
 let ( --> ) lhs rhs = case ~guard:None ~lhs ~rhs
 
-let wrap_runtime decls =
-    [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
+let wrap_runtime ~loc decls =
+  [%expr let open! Ppx_jsobject_conv_runtime in [%e decls]]
 
 let mk_ep_var ~loc n = evar ~loc n, pvar ~loc n
 
@@ -267,12 +267,12 @@ let constrained_function_binding = fun
 module Jsobject_of_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
-      td ~f:(fun ~loc:_ ty ->
+      td ~f:(fun ~loc ty ->
         [%type: [%t ty] -> Js.Unsafe.any Js.t])
 
   let mk_ref_type td =
     combinator_type_of_type_declaration
-      td ~f:(fun ~loc:_ ty ->
+      td ~f:(fun ~loc ty ->
         [%type: ([%t ty] -> Js.Unsafe.any Js.t) ref])
 
 
@@ -495,7 +495,7 @@ module Jsobject_of_expander = struct
          let default_func =
            let _, eps = List.split tparams in
            let _, patts = List.split eps in
-           let fb = eabstract ~loc patts @@ wrap_runtime default_func_body in
+           let fb = eabstract ~loc patts @@ wrap_runtime ~loc default_func_body in
            let constraint_ = mk_type td in
            constrained_function_binding ~loc ~constraint_
                                         ~func_name:default_name fb
@@ -518,7 +518,7 @@ module Jsobject_of_expander = struct
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
-      eabstract ~loc patts @@ wrap_runtime body'
+      eabstract ~loc patts @@ wrap_runtime ~loc body'
     in
     List.append sitems [constrained_function_binding ~loc ~func_name body'']
 
@@ -606,7 +606,7 @@ module Jsobject_of_expander = struct
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
-      eabstract ~loc patts @@ wrap_runtime body'
+      eabstract ~loc patts @@ wrap_runtime ~loc body'
     in
     (* statement for saving previously defined function: it is used in
        wildcard pattern above *)
@@ -652,8 +652,10 @@ module Jsobject_of = struct
   let str_type_ext =
     Type_conv.Generator.make_noarg Jsobject_of_expander.str_type_ext
 
+  let name = "jsobject_of"
+
   let deriver =
-    Type_conv.add "jsobject_of"
+    Type_conv.add name
       ~str_type_decl
       ~sig_type_decl
       ~str_type_ext
@@ -666,17 +668,17 @@ module Of_jsobject_expander = struct
     let es = estring ~loc @@ string_of_int i in
     (ei, es)
 
-  let mk_err_expander path_comp =
+  let mk_err_expander ~loc path_comp =
     [%expr (fun emsg -> concat_error_messages [%e path_comp] emsg)]
 
   let mk_type td =
     combinator_type_of_type_declaration
-      td ~f:(fun ~loc:_ ty ->
+      td ~f:(fun ~loc ty ->
         [%type: Js.Unsafe.any Js.t -> ([%t ty], string) result ])
 
   let mk_ref_type td =
     combinator_type_of_type_declaration
-      td ~f:(fun ~loc:_ ty ->
+      td ~f:(fun ~loc ty ->
         [%type: (Js.Unsafe.any Js.t -> ([%t ty], string) result) ref ])
 
   let eok ~loc v = pexp_construct
@@ -766,7 +768,7 @@ module Of_jsobject_expander = struct
                    [%expr
                        array_get_ind [%e earr] [%e ei]
                        >>= [%e fp]
-                       >*= [%e mk_err_expander es]
+                       >*= [%e mk_err_expander ~loc es]
                        >>= (fun [%p pvar ] ->
                                 [%e acc])])
                  pvars iefps
@@ -801,7 +803,7 @@ module Of_jsobject_expander = struct
                      [%expr
                          array_get_ind [%e earr] [%e ei]
                       >>= [%e cnstr_fun]
-                      >*= [%e mk_err_expander es]
+                      >*= [%e mk_err_expander ~loc es]
                       >>= (fun [%p pv] ->
                         [%e eok ~loc ecnstr]
                      )] in
@@ -923,7 +925,7 @@ module Of_jsobject_expander = struct
                            object_get_key [%e eobj] [%e field_name]
                          >>= (fun [%p pname] ->
                               [%e conv] [%e vname]
-                              >*= [%e mk_err_expander field_name]
+                              >*= [%e mk_err_expander ~loc field_name]
                               >>= (fun [%p pca] -> [%e eres]))
                        ]
       in (pcnstr --> final_conv, cname)
@@ -973,7 +975,7 @@ module Of_jsobject_expander = struct
              [%expr
                  array_get_ind [%e earr] [%e ei]
               >>= [%e fa]
-              >*= [%e mk_err_expander es]
+              >*= [%e mk_err_expander ~loc es]
               >>= (fun [%p pvar ] ->
                 [%e acc])])
            pvars iefargs
@@ -984,7 +986,7 @@ module Of_jsobject_expander = struct
          [%expr
              array_get_ind [%e earr] [%e ei]
              >>= [%e rec_conv]
-             >*= [%e mk_err_expander es]
+             >*= [%e mk_err_expander ~loc es]
          ]
       in
       (pcnstr --> conv, cname)
@@ -1040,7 +1042,7 @@ module Of_jsobject_expander = struct
       [%expr
           object_get_key [%e eobj] [%e field_name]
        >>= [%e cnv]
-       >*= [%e mk_err_expander field_name]
+       >*= [%e mk_err_expander ~loc field_name]
        >>= (fun [%p pname] ->
          [%e acc])]
     in
@@ -1085,7 +1087,7 @@ module Of_jsobject_expander = struct
          let default_func =
            let _, eps = List.split tparams in
            let _, patts = List.split eps in
-           let fb = eabstract ~loc patts @@ wrap_runtime default_func_body in
+           let fb = eabstract ~loc patts @@ wrap_runtime ~loc default_func_body in
            let constraint_ = mk_type td in
            constrained_function_binding ~loc ~constraint_
                                         ~func_name:default_name fb
@@ -1108,7 +1110,7 @@ module Of_jsobject_expander = struct
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
-      eabstract ~loc patts @@ wrap_runtime body'
+      eabstract ~loc patts @@ wrap_runtime ~loc body'
     in
     List.append sitems [constrained_function_binding ~loc ~func_name body'']
 
@@ -1198,7 +1200,7 @@ module Of_jsobject_expander = struct
     let body'' =
       let _, eps = List.split tparams in
       let _, patts = List.split eps in
-      eabstract ~loc patts @@ wrap_runtime body'
+      eabstract ~loc patts @@ wrap_runtime ~loc body'
     in
     (* statement for saving previously defined function: it is used in
        wildcard pattern above *)
@@ -1246,8 +1248,10 @@ module Of_jsobject = struct
   let str_type_ext =
     Type_conv.Generator.make_noarg Of_jsobject_expander.str_type_ext
 
+  let name = "of_jsobject"
+
   let deriver =
-    Type_conv.add "of_jsobject"
+    Type_conv.add name
       ~str_type_decl
       ~sig_type_decl
       ~str_type_ext

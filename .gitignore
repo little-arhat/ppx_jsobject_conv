@@ -19,3 +19,5 @@ ppx_jsobject_conv.install
 ppx-jsobject-conv-tests.install
 test.byte
 test.js
+src/.merlin
+runtime/.merlin
