@@ -1,0 +1,8 @@
+(library
+  (name ppx_jsobject_conv)
+  (public_name ppx_jsobject_conv)
+  (kind ppx_deriver)
+  (ppx_runtime_libraries ppx_jsobject_conv.runtime)
+  (flags :standard -safe-string)
+  (libraries ppxlib)
+  (preprocess (pps ppxlib.metaquot)))

@@ -1,0 +1,5 @@
+(library
+  (name        ppx_jsobject_conv_runtime)
+  (public_name ppx_jsobject_conv.runtime)
+  (libraries js_of_ocaml)
+  (preprocess no_preprocessing))

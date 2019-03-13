@@ -2,11 +2,10 @@ module L = List
 open StdLabels
 
 module OrigLocation = Location
-open Ppx_core.Light
+open Ppxlib
 open Asttypes
 (* open Parsetree *)
 open Ast_builder.Default
-module Type_conv = Ppx_type_conv.Std.Type_conv
 
 let ( --> ) lhs rhs = case ~guard:None ~lhs ~rhs
 
@@ -362,14 +361,14 @@ module Jsobject_of_expander = struct
     in
     let item = function
       | Rtag (cnstr, _, true, []) ->
-         ppat_variant ~loc cnstr None -->
-           (make_final_expr cnstr [] )
+         ppat_variant ~loc cnstr.txt None -->
+           (make_final_expr cnstr.txt [] )
       | Rtag (cnstr, _, false, [tp]) ->
         let var, patt = mk_ep_var ~loc "v0" in
         let cnstr_arg = Fun_or_match.unroll
                           ~loc var (jsobject_of_type tparams tp) in
-        let expr = make_final_expr cnstr [cnstr_arg] in
-        ppat_variant ~loc cnstr (Some patt) --> expr
+        let expr = make_final_expr cnstr.txt [cnstr_arg] in
+        ppat_variant ~loc cnstr.txt (Some patt) --> expr
       | Rtag (_) | Rinherit(_) ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: unsupported jsobject_of_variant"
     in Fun_or_match.Match (List.map ~f:item row_fields)
@@ -638,7 +637,7 @@ end
 
 module Jsobject_of = struct
   let str_type_decl =
-    Type_conv.Generator.make_noarg
+    Ppxlib.Deriving.Generator.make_noarg
       Jsobject_of_expander.str_type_decl
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
@@ -647,15 +646,15 @@ module Jsobject_of = struct
                   ]
 
   let sig_type_decl =
-    Type_conv.Generator.make_noarg Jsobject_of_expander.sig_type_decl
+    Ppxlib.Deriving.Generator.make_noarg Jsobject_of_expander.sig_type_decl
 
   let str_type_ext =
-    Type_conv.Generator.make_noarg Jsobject_of_expander.str_type_ext
+    Ppxlib.Deriving.Generator.make_noarg Jsobject_of_expander.str_type_ext
 
   let name = "jsobject_of"
 
   let deriver =
-    Type_conv.add name
+    Ppxlib.Deriving.add name
       ~str_type_decl
       ~sig_type_decl
       ~str_type_ext
@@ -787,19 +786,19 @@ module Of_jsobject_expander = struct
     let item = function
       (* p. variant constructor w/o arguments*)
       | Rtag (cnstr, _, true , []) ->
-         let ecnstr = Ast_helper.Exp.variant ~loc cnstr None in
-         (pstring ~loc cnstr -->
+         let ecnstr = Ast_helper.Exp.variant ~loc cnstr.txt None in
+         (pstring ~loc cnstr.txt -->
             [%expr [%e eok ~loc ecnstr]],
-          cnstr)
+          cnstr.txt)
       (* p. variant constructor w argument *)
       | Rtag (cnstr, _, false, [tp]) ->
          let ev, pv = mk_ep_var ~loc "v0" in
          let cnstr_fun =
            Fun_or_match.expr ~loc
                              (type_of_jsobject tparams tp) in
-         let ecnstr = Ast_helper.Exp.variant ~loc cnstr (Some ev) in
+         let ecnstr = Ast_helper.Exp.variant ~loc cnstr.txt (Some ev) in
          let ei, es = mk_index ~loc 1 in
-         let exp = pstring ~loc cnstr -->
+         let exp = pstring ~loc cnstr.txt -->
                      [%expr
                          array_get_ind [%e earr] [%e ei]
                       >>= [%e cnstr_fun]
@@ -807,7 +806,7 @@ module Of_jsobject_expander = struct
                       >>= (fun [%p pv] ->
                         [%e eok ~loc ecnstr]
                      )] in
-         (exp, cnstr)
+         (exp, cnstr.txt)
       | Rtag(_) | Rinherit(_) ->
          Location.raise_errorf "ppx_jsobject_conv: unsupported variant_of_jsobject"
     in
@@ -1233,7 +1232,7 @@ end
 
 module Of_jsobject = struct
   let str_type_decl =
-    Type_conv.Generator.make_noarg
+    Ppxlib.Deriving.Generator.make_noarg
       Of_jsobject_expander.str_type_decl
       ~attributes:[Attribute.T Attrs.name;
                    Attribute.T Attrs.key;
@@ -1243,15 +1242,15 @@ module Of_jsobject = struct
                   ]
 
   let sig_type_decl =
-    Type_conv.Generator.make_noarg Of_jsobject_expander.sig_type_decl
+    Ppxlib.Deriving.Generator.make_noarg Of_jsobject_expander.sig_type_decl
 
   let str_type_ext =
-    Type_conv.Generator.make_noarg Of_jsobject_expander.str_type_ext
+    Ppxlib.Deriving.Generator.make_noarg Of_jsobject_expander.str_type_ext
 
   let name = "of_jsobject"
 
   let deriver =
-    Type_conv.add name
+    Ppxlib.Deriving.add name
       ~str_type_decl
       ~sig_type_decl
       ~str_type_ext
@@ -1259,10 +1258,10 @@ end
 
 
 let () =
-  Type_conv.add_alias "jsobject"
+  Ppxlib.Deriving.add_alias "jsobject"
                       [Jsobject_of.deriver ;
                        Of_jsobject.deriver
                       ]
                       ~sig_exception:[Jsobject_of.deriver]
                       ~str_exception:[Jsobject_of.deriver]
-  |> Type_conv.ignore;;
+  |> Ppxlib.Deriving.ignore;;
