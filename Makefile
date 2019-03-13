@@ -1,18 +1,18 @@
 NAME := ppx_jsobject_conv
 PREFIX = $(shell opam config var prefix)
-TEST_CMD := node
+RUNNER := dune
 
 build:
-	jbuilder build
+	$(RUNNER) build
 
 test:
-	jbuilder runtest
+	$(RUNNER) build @runtest
 
 $(NAME).install:
 	$(MAKE) build
 
 clean:
-	jbuilder clean
+	$(RUNNER) clean
 	rm -f $(NAME).install
 	rm -f $(NAME)-tests.install
 

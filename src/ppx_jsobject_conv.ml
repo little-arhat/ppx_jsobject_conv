@@ -267,12 +267,12 @@ module Jsobject_of_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc ty ->
-        [%type: [%t ty] -> Js.Unsafe.any Js.t])
+        [%type: [%t ty] -> Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t])
 
   let mk_ref_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc ty ->
-        [%type: ([%t ty] -> Js.Unsafe.any Js.t) ref])
+        [%type: ([%t ty] -> Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t) ref])
 
 
   let name_of_tdname name = match name with
@@ -673,12 +673,12 @@ module Of_jsobject_expander = struct
   let mk_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc ty ->
-        [%type: Js.Unsafe.any Js.t -> ([%t ty], string) result ])
+        [%type: Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t -> ([%t ty], string) result ])
 
   let mk_ref_type td =
     combinator_type_of_type_declaration
       td ~f:(fun ~loc ty ->
-        [%type: (Js.Unsafe.any Js.t -> ([%t ty], string) result) ref ])
+        [%type: (Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t -> ([%t ty], string) result) ref ])
 
   let eok ~loc v = pexp_construct
                      ~loc (Located.lident ~loc "Ok") (Some v)

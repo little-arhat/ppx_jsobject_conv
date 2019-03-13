@@ -7,14 +7,14 @@ module Pjcr = Ppx_jsobject_conv_runtime
 open Webtest
 
 module JSON = struct
-  let json = (Js.Unsafe.variable "JSON")
+  let json = (Js_of_ocaml.Js.Unsafe.variable "JSON")
 
   let parse j =
-    let jss = Js.string j in
-    Js.Unsafe.meth_call json "parse" [| Js.Unsafe.inject jss |]
+    let jss = Js_of_ocaml.Js.string j in
+    Js_of_ocaml.Js.Unsafe.meth_call json "parse" [| Js_of_ocaml.Js.Unsafe.inject jss |]
 
   let stringify obj =
-    Js.to_string @@ Js.Unsafe.meth_call json "stringify" [| Js.Unsafe.inject obj |]
+    Js_of_ocaml.Js.to_string @@ Js_of_ocaml.Js.Unsafe.meth_call json "stringify" [| Js_of_ocaml.Js.Unsafe.inject obj |]
 end
 
 let expect_ok = function
@@ -31,8 +31,8 @@ let tests = ref []
 
 let _should_parse : 'a . string ->
                     ?compare_with:string ->
-                    (Js.Unsafe.any Js.t -> ('a, string) result) ->
-                    ('a -> Js.Unsafe.any Js.t) -> unit
+                    (Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t -> ('a, string) result) ->
+                    ('a -> Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t) -> unit
   = fun inp ?compare_with from_jsobject to_jsobject ->
   let parsed = JSON.parse inp in
   let result = from_jsobject parsed in
@@ -53,7 +53,7 @@ let should_parse name input ?compare_with from_jsobject to_jsobject =
   tests := (t::!tests)
 
 let _should_fail : 'a . string ->
-                   (Js.Unsafe.any Js.t -> ('a, string) result) ->
+                   (Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t -> ('a, string) result) ->
                    unit =
   fun inp from_jsobject ->
   let parsed = JSON.parse inp in
@@ -309,7 +309,7 @@ let () =
 (*     func: Ppx_jsobject_conv_runtime.jsfunction *)
 (*   } [@@deriving jsobject] *)
 
-(* type noop = {carry: int Js.t; ident: string} [@@deriving jsobject] *)
-(* type anoop = {acarry: Js.Unsafe.any Js.t; aident: string} [@@deriving jsobject] *)
+(* type noop = {carry: int Js_of_ocaml.Js.t; ident: string} [@@deriving jsobject] *)
+(* type anoop = {acarry: Js_of_ocaml.Js.Unsafe.any Js_of_ocaml.Js.t; aident: string} [@@deriving jsobject] *)
 (* type test_unit = (unit * unit) [@@deriving jsobject] *)
-(* type test_any = Js.Unsafe.any * int [@@deriving jsobject] *)
+(* type test_any = Js_of_ocaml.Js.Unsafe.any * int [@@deriving jsobject] *)

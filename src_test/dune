@@ -7,4 +7,4 @@
 (alias
   (name runtest)
   (deps test.bc.js)
-  (action (run node ${<})))
+  (action (run node test.bc.js)))
