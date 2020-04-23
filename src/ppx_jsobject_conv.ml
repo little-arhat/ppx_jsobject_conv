@@ -360,10 +360,10 @@ module Jsobject_of_expander = struct
       [%expr to_js_array [%e full]]
     in
     let item = function
-      | Rtag (cnstr, _, true, []) ->
+      | Rtag (cnstr, true, []) ->
          ppat_variant ~loc cnstr.txt None -->
            (make_final_expr cnstr.txt [] )
-      | Rtag (cnstr, _, false, [tp]) ->
+      | Rtag (cnstr, false, [tp]) ->
         let var, patt = mk_ep_var ~loc "v0" in
         let cnstr_arg = Fun_or_match.unroll
                           ~loc var (jsobject_of_type tparams tp) in
@@ -371,7 +371,9 @@ module Jsobject_of_expander = struct
         ppat_variant ~loc cnstr.txt (Some patt) --> expr
       | Rtag (_) | Rinherit(_) ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: unsupported jsobject_of_variant"
-    in Fun_or_match.Match (List.map ~f:item row_fields)
+    in
+    let desc_item = fun rf -> item rf.prf_desc
+    in Fun_or_match.Match (List.map ~f:desc_item row_fields)
 
   (* Conversion of sum types *)
   let rec jsobject_of_sum tparams cds =
@@ -785,13 +787,13 @@ module Of_jsobject_expander = struct
     let earr, parr = mk_ep_var ~loc "arr" in
     let item = function
       (* p. variant constructor w/o arguments*)
-      | Rtag (cnstr, _, true , []) ->
+      | Rtag (cnstr, true , []) ->
          let ecnstr = Ast_helper.Exp.variant ~loc cnstr.txt None in
          (pstring ~loc cnstr.txt -->
             [%expr [%e eok ~loc ecnstr]],
           cnstr.txt)
       (* p. variant constructor w argument *)
-      | Rtag (cnstr, _, false, [tp]) ->
+      | Rtag (cnstr, false, [tp]) ->
          let ev, pv = mk_ep_var ~loc "v0" in
          let cnstr_fun =
            Fun_or_match.expr ~loc
@@ -810,7 +812,8 @@ module Of_jsobject_expander = struct
       | Rtag(_) | Rinherit(_) ->
          Location.raise_errorf "ppx_jsobject_conv: unsupported variant_of_jsobject"
     in
-    let matches, varnames = List.split @@ List.map ~f:item row_fields in
+    let desc_item = fun rf -> item rf.prf_desc in
+    let matches, varnames = List.split @@ List.map ~f:desc_item row_fields in
     let unknown_match =
       let allowed = String.concat ~sep:"/" varnames in
       let msg = Printf.sprintf "0: expected one of the %s, got " allowed in

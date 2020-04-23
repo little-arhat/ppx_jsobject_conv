@@ -29,9 +29,9 @@ reinstall: $(NAME).install
 .PHONY: build driver test clean
 
 
-VERSION      := $$(opam query --version)
-NAME_VERSION := $$(opam query --name-version)
-ARCHIVE      := $$(opam query --archive)
+VERSION      := $$(opam query --version ppx_jsobject_conv.opam)
+NAME_VERSION := $$(opam query --name-version ppx_jsobject_conv.opam)
+ARCHIVE      := $$(opam query --archive ppx_jsobject_conv.opam)
 
 release:
 	git tag -a v$(VERSION) -m "Version $(VERSION)."
