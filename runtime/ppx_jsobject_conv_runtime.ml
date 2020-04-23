@@ -32,7 +32,9 @@ let string_typeof v =
   then (
     if Js_of_ocaml.Js.instanceof v Js_of_ocaml.Js.array_empty
     then "array"
-    else (if Js_of_ocaml.Js.instanceof v (Js_of_ocaml.Js.Unsafe.get Js_of_ocaml.Js.Unsafe.global "String")
+    else (if Js_of_ocaml.Js.instanceof v (Js_of_ocaml.Js.Unsafe.get
+                                            Js_of_ocaml.Js.Unsafe.global
+                                            (Js_of_ocaml.Js.string "String"))
           then "string"
           else (if Js_of_ocaml.Js.Opt.test @@ Js_of_ocaml.Js.some v
                 then "object"
@@ -75,7 +77,7 @@ let is_array v  =
     in arr)
 
 let array_length_f (arr : 'a Js_of_ocaml.Js.t #Js_of_ocaml.Js.js_array Js_of_ocaml.Js.t) : int =
-  (Js_of_ocaml.Js.Unsafe.get arr "length")
+  (Js_of_ocaml.Js.Unsafe.get arr (Js_of_ocaml.Js.string "length"))
 
 let is_array_of_size_n obj expected =
   is_array obj >>=
@@ -93,7 +95,7 @@ let array_get_ind arr ind =
   | None -> Ok(Js_of_ocaml.Js.Unsafe.eval_string("undefined"))
 
 let object_get_key (obj: 'a Js_of_ocaml.Js.t) (key:string) =
-  Ok(Js_of_ocaml.Js.Unsafe.get obj key)
+  Ok(Js_of_ocaml.Js.Unsafe.get obj (Js_of_ocaml.Js.string key))
 
 let defined_or_error obj =
   match Js_of_ocaml.Js.Optdef.to_option @@ Js_of_ocaml.Js.def obj with
