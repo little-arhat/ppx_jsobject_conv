@@ -15,9 +15,9 @@ build: [
 ]
 depends: [
   "ocaml" {>= "4.10.0"}
-  "js_of_ocaml" {>= "3.8.0" & < "3.11.0"}
+  "dune" {>= "2.7"}
+  "js_of_ocaml" {>= "3.8.0"}
   "ppxlib" {>= "0.22.0"}
-  "dune" {>= "2.7" & >= "2"}
   "webtest" {with-test}
   "webtest-js" {with-test}
 ]
