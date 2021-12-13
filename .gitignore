@@ -21,3 +21,5 @@ test.byte
 test.js
 src/.merlin
 runtime/.merlin
+_opam/
+.vscode/
