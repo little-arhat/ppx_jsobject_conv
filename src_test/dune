@@ -1,7 +1,7 @@
 (executable
    (name test)
-    (libraries js_of_ocaml webtest webtest.js)
-    (js_of_ocaml (flags (:standard --linkall +weak.js)))
+   (modes js)
+    (libraries js_of_ocaml webtest webtest-js)
     (preprocess (pps ppx_jsobject_conv)))
 
 (alias
