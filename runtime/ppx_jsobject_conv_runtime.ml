@@ -42,8 +42,7 @@ let string_typeof v =
   else Js_of_ocaml.Js.to_string tpof
 
 let type_error v expected =
-  Error(Printf.sprintf "expected %s, got %s"
-                              expected  (string_typeof v))
+  Error("expected " ^ expected ^ ", got " ^(string_typeof v))
 let concat_error_messages path msg =
   if String.contains msg ':'
   then path ^ "." ^ msg
@@ -65,12 +64,12 @@ let array_fold_right_short_circuit ~f arr ~init =
   with Short_circuit(s) -> Error(s)
 
 let is_object v =
-  let msg = Printf.sprintf "expected object, got %s" (string_typeof v) in
+  let msg = "expected object, got " ^ (string_typeof v) in
   result_of_bool (string_typeof v = "object") msg
   >|= (fun _ -> v)
 
 let is_array v  =
-  let msg = Printf.sprintf "expected array, got %s" (string_typeof v) in
+  let msg = "expected array, got " ^ (string_typeof v) in
   result_of_bool (Js_of_ocaml.Js.instanceof v Js_of_ocaml.Js.array_empty) msg
   >|= (fun _ ->
     let arr:'a Js_of_ocaml.Js.t #Js_of_ocaml.Js.js_array Js_of_ocaml.Js.t = Js_of_ocaml.Js.Unsafe.coerce v
@@ -80,14 +79,13 @@ let array_length_f (arr : 'a Js_of_ocaml.Js.t #Js_of_ocaml.Js.js_array Js_of_oca
   (Js_of_ocaml.Js.Unsafe.get arr (Js_of_ocaml.Js.string "length"))
 
 let is_array_of_size_n obj expected =
-  is_array obj >>=
-    (fun arr ->
-      let got = array_length_f arr in
-      result_of_bool (expected = got)
-                     (Printf.sprintf
-                        "expected array of length %d, got %d"
-                        expected got)
-      >|= (fun _ -> arr))
+  is_array obj
+  >>= fun arr ->
+  let got = array_length_f arr in
+  result_of_bool (expected = got)
+    ("expected array of length " ^ string_of_int expected ^ ", got "
+    ^ string_of_int got)
+  >|= fun _ -> arr
 
 let array_get_ind arr ind =
   match Js_of_ocaml.Js.Optdef.to_option @@ Js_of_ocaml.Js.array_get arr ind with
