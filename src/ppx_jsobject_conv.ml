@@ -570,10 +570,11 @@ module Jsobject_of_expander = struct
     let make_cd = function
       | {pext_kind; pext_name; pext_loc; pext_attributes } ->
          (match pext_kind with
-          | Pext_decl (cons_args, ctyp) ->
+          | Pext_decl (vars, cons_args, ctyp) ->
              {
                pcd_name = pext_name;
                pcd_args = cons_args;
+               pcd_vars = vars;
                pcd_res = ctyp;
                pcd_loc = pext_loc;
                pcd_attributes = pext_attributes;
@@ -1163,10 +1164,11 @@ module Of_jsobject_expander = struct
     let make_cd = function
       | {pext_kind; pext_name; pext_loc; pext_attributes } ->
          (match pext_kind with
-          | Pext_decl (cons_args, ctyp) ->
+          | Pext_decl (vars, cons_args, ctyp) ->
              {
                pcd_name = pext_name;
                pcd_args = cons_args;
+               pcd_vars = vars;
                pcd_res = ctyp;
                pcd_loc = pext_loc;
                pcd_attributes = pext_attributes;
