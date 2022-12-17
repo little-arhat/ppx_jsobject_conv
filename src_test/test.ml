@@ -7,7 +7,7 @@ module Pjcr = Ppx_jsobject_conv_runtime
 open Webtest
 
 module JSON = struct
-  let json = (Js_of_ocaml.Js.Unsafe.variable "JSON")
+  let json = (Js_of_ocaml.Js.Unsafe.pure_js_expr "JSON")
 
   let parse j =
     let jss = Js_of_ocaml.Js.string j in

@@ -24,7 +24,7 @@ let result_of_bool v er = if v then Ok(v) else Error(er)
 let throw_js_error msg =
   let err = Js_of_ocaml.Js.Unsafe.new_obj Js_of_ocaml.Js.error_constr [|Js_of_ocaml.Js.Unsafe.inject @@
                                                 Js_of_ocaml.Js.string msg|] in
-  Js_of_ocaml.Js.raise_js_error err
+  Js_of_ocaml.Js_error.raise_ err
 
 let string_typeof v =
   let tpof = Js_of_ocaml.Js.typeof v in
