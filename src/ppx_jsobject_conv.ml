@@ -84,7 +84,7 @@ module Attrs = struct
          | Ptyp_tuple (_) | Ptyp_variant (_)
            | Ptyp_object (_) | Ptyp_class (_)
            | Ptyp_package(_) | Ptyp_any | Ptyp_var(_) | Ptyp_arrow(_)
-           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) -> err ()
+           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) | Ptyp_open(_) -> err ()
        in true
     | None -> false
 
@@ -126,7 +126,7 @@ module Attrs = struct
          | Ptyp_tuple (_) | Ptyp_variant (_)
            | Ptyp_object (_) | Ptyp_class (_)
            | Ptyp_package(_) | Ptyp_any | Ptyp_var(_) | Ptyp_arrow(_)
-           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) -> ()
+           | Ptyp_alias(_) | Ptyp_poly(_) | Ptyp_extension(_) | Ptyp_open(_) -> ()
        in v
     | None -> None
 
@@ -170,7 +170,7 @@ module Fun_or_match = struct
   let expr ~loc t =
     match t with
     | Fun f       -> f
-    | Match cases -> pexp_function ~loc cases
+    | Match cases -> pexp_function_cases ~loc cases
 
   let unroll ~loc e t =
     match t with
@@ -339,7 +339,7 @@ module Jsobject_of_expander = struct
     | Ptyp_package(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- modules are not supported yet"
     | Ptyp_any | Ptyp_arrow(_) | Ptyp_alias(_)
-      | Ptyp_poly(_) | Ptyp_extension(_) ->
+      | Ptyp_poly(_) | Ptyp_extension(_) | Ptyp_open(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: jsobject_of_type -- Unsupported type"
   (* Conversion of tuples *)
   and jsobject_of_tuple ~loc tparams tps =
@@ -514,7 +514,7 @@ module Jsobject_of_expander = struct
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
                                             [%e fun_expr] [%e input_evar ~loc]]
-      | Fun_or_match.Match matchings -> pexp_function ~loc matchings
+      | Fun_or_match.Match matchings -> pexp_function_cases ~loc matchings
     in
     let body'' =
       let _, eps = List.split tparams in
@@ -601,7 +601,7 @@ module Jsobject_of_expander = struct
          let ev, pv = mk_ep_var ~loc "wildcard" in
          let wild_match = pv -->
                             eapply ~loc previous_evar [ev] in
-         pexp_function ~loc (List.append matchings [wild_match])
+         pexp_function_cases ~loc (List.append matchings [wild_match])
       | Fun_or_match.Fun _ ->
          Location.raise_errorf ~loc "ppx_jsobject_conv: impossible state"
     in
@@ -754,7 +754,7 @@ module Of_jsobject_expander = struct
     | Ptyp_package(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: type_of_jsobject -- modules are not supported yet"
     | Ptyp_any  | Ptyp_arrow(_) | Ptyp_alias(_)
-      | Ptyp_poly(_) | Ptyp_extension(_) ->
+      | Ptyp_poly(_) | Ptyp_extension(_) | Ptyp_open(_) ->
        Location.raise_errorf ~loc "ppx_jsobject_conv: type_of_jsobject -- Unsupported type"
   and tuple_of_jsobject ~loc tparams tps =
     let fps = List.map ~f:(type_of_jsobject tparams) tps in
@@ -1108,7 +1108,7 @@ module Of_jsobject_expander = struct
     let body' = match body with
       | Fun_or_match.Fun fun_expr -> [%expr fun [%p input_pvar ~loc] ->
                                             [%e fun_expr] [%e input_evar ~loc]]
-      | Fun_or_match.Match matchings -> pexp_function ~loc matchings
+      | Fun_or_match.Match matchings -> pexp_function_cases ~loc matchings
     in
     let body'' =
       let _, eps = List.split tparams in
